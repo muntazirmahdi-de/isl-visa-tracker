@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISL Visa Queue — Since Oct 2025</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B1220;
+    --surface: #121B2E;
+    --surface-2: #182238;
+    --border: #253048;
+    --text: #E8ECF4;
+    --text-dim: #8A94AC;
+    --gold: #D4A24C;
+    --gold-dim: #8C6E33;
+
+    --c-waiting: #7C88A6;
+    --c-submission: #4C8BD4;
+    --c-submitted: #3FB8A6;
+    --c-correction: #D4744C;
+    --c-appointed: #4FCB8A;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% -10%, rgba(212,162,76,0.08), transparent 45%),
+      radial-gradient(circle at 85% 0%, rgba(76,139,212,0.06), transparent 40%);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  .wrap{ max-width: 1180px; margin: 0 auto; }
+
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap: wrap; gap: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(28px, 4vw, 40px);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .subtitle{ color: var(--text-dim); margin-top: 8px; font-size: 14.5px; }
+  .refresh-info{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12.5px; color: var(--text-dim); text-align:right;
+  }
+  #lastUpdated{ color: var(--text); }
+  .refresh-btn{
+    margin-top: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .refresh-btn:hover{ border-color: var(--gold-dim); color: var(--text); }
+  .refresh-btn:disabled{ opacity: 0.5; cursor: default; }
+
+  .stats{
+    display:grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 900px){ .stats{ grid-template-columns: repeat(3, 1fr);} }
+  @media (max-width: 520px){ .stats{ grid-template-columns: repeat(2, 1fr);} }
+
+  .stat-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width: 3px;
+  }
+  .stat-card.total::before{ background: var(--gold); }
+  .stat-card.waiting::before{ background: var(--c-waiting); }
+  .stat-card.submission::before{ background: var(--c-submission); }
+  .stat-card.submitted::before{ background: var(--c-submitted); }
+  .stat-card.correction::before{ background: var(--c-correction); }
+  .stat-card.appointed::before{ background: var(--c-appointed); }
+
+  .stat-num{
+    font-family:'Fraunces', serif;
+    font-size: 30px; font-weight: 600; line-height: 1;
+  }
+  .stat-label{
+    margin-top: 8px; font-size: 11.5px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  .lookup-card{
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .lookup-title{
+    font-family:'Fraunces', serif;
+    font-size: 20px; font-weight: 600;
+  }
+  .lookup-sub{
+    color: var(--text-dim); font-size: 13.5px; margin-top: 4px; margin-bottom: 16px;
+  }
+  .lookup-row{ display:flex; gap: 10px; flex-wrap: wrap; }
+  #lookupInput{
+    flex:1; min-width: 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-family:'Inter', sans-serif;
+    font-size: 14.5px;
+    outline: none;
+  }
+  #lookupInput:focus{ border-color: var(--gold-dim); }
+  #lookupBtn{
+    background: var(--gold);
+    color: #1A1408;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-family:'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14.5px;
+    cursor: pointer;
+  }
+  #lookupBtn:hover{ background: #E3B562; }
+
+  #lookupResults{ margin-top: 16px; }
+
+  .candidate-list{
+    display:flex; flex-direction:column; gap: 8px;
+  }
+  .candidate-item{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display:flex; justify-content:space-between; align-items:center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .candidate-item:hover{ border-color: var(--gold-dim); }
+  .candidate-name{ font-weight: 600; font-size: 14.5px; }
+  .candidate-meta{ font-family:'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .position-result{
+    display:flex; align-items:center; gap: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    flex-wrap: wrap;
+  }
+  .position-num{
+    font-family:'Fraunces', serif;
+    font-size: 44px; font-weight: 700; color: var(--gold);
+    line-height: 1;
+  }
+  .position-detail{ flex: 1; min-width: 200px; }
+  .position-detail .name{ font-weight: 600; font-size: 16px; }
+  .position-detail .meta{ color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+  .back-link{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-dim);
+    cursor: pointer; text-decoration: underline;
+    margin-top: 12px; display:inline-block;
+  }
+  .lookup-empty{ color: var(--text-dim); font-size: 13.5px; }
+
+  .controls{
+    display:flex; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 20px; align-items:center;
+  }
+  input[type="text"], select{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    outline: none;
+  }
+  input[type="text"]{ flex: 1; min-width: 200px; }
+  input[type="text"]:focus, select:focus{ border-color: var(--gold-dim); }
+  select{ cursor:pointer; }
+  .count-pill{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .table-wrap{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  table{ width:100%; border-collapse: collapse; }
+  thead th{
+    text-align:left;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top:0;
+  }
+  tbody td{
+    padding: 12px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background: rgba(255,255,255,0.02); }
+  .mono{ font-family:'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-dim); }
+
+  .stamp{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid currentColor;
+  }
+  .stamp.waiting{ color: var(--c-waiting); }
+  .stamp.submission{ color: var(--c-submission); }
+  .stamp.submitted{ color: var(--c-submitted); }
+  .stamp.correction{ color: var(--c-correction); }
+  .stamp.appointed{ color: var(--c-appointed); }
+
+  .state-msg{
+    padding: 60px 20px; text-align:center; color: var(--text-dim);
+    font-family:'JetBrains Mono', monospace; font-size: 13px;
+  }
+  .state-msg.error{ color: var(--c-correction); }
+
+  ::selection{ background: var(--gold-dim); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">ISL &middot; Islamabad Visa Queue</div>
+      <h1>Applicant Tracker</h1>
+      <div class="subtitle">All applicants, October 2025 &rarr; present</div>
+    </div>
+    <div class="refresh-info">
+      Last updated<br><span id="lastUpdated">—</span>
+      <div><button id="refreshBtn" class="refresh-btn">Refresh now</button></div>
+    </div>
+  </header>
+
+  <div class="lookup-card">
+    <div class="lookup-title">Check Queue Position</div>
+    <div class="lookup-sub">Find out how many people ahead of you are still waiting.</div>
+    <div class="lookup-row">
+      <input type="text" id="lookupInput" placeholder="Enter full name…">
+      <button id="lookupBtn">Search</button>
+    </div>
+    <div id="lookupResults"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card total"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card waiting"><div class="stat-num" id="statWaiting">—</div><div class="stat-label">Waiting</div></div>
+    <div class="stat-card submission"><div class="stat-num" id="statSubmission">—</div><div class="stat-label">Got Submission</div></div>
+    <div class="stat-card submitted"><div class="stat-num" id="statSubmitted">—</div><div class="stat-label">Submitted</div></div>
+    <div class="stat-card correction"><div class="stat-num" id="statCorrection">—</div><div class="stat-label">Correction</div></div>
+    <div class="stat-card appointed"><div class="stat-num" id="statAppointed">—</div><div class="stat-label">Appointed</div></div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="searchBox" placeholder="Search by name…">
+    <select id="stageFilter">
+      <option value="all">All stages</option>
+      <option value="waiting">Waiting</option>
+      <option value="gotSubmission">Got Submission</option>
+      <option value="submitted">Submitted</option>
+      <option value="correction">Correction</option>
+      <option value="appointed">Appointed</option>
+    </select>
+    <select id="monthFilter">
+      <option value="all">All months</option>
+    </select>
+    <span class="count-pill" id="countPill"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table id="dataTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Join Date</th>
+          <th>Join Time</th>
+          <th>Stage</th>
+          <th>Month</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="state-msg" id="stateMsg">Loading applicant data…</div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = "/api";
+const START_MONTH = "2025-10"; // October 2025
+
+let allData = [];
+
+function stageLabel(stage){
+  const map = {
+    waiting: "Waiting",
+    gotSubmission: "Got Submission",
+    submitted: "Submitted",
+    correction: "Correction",
+    appointed: "Appointed"
+  };
+  return map[stage] || stage;
+}
+
+function deriveStage(item){
+  if (item.hasAppointment) return "appointed";
+  if (item.hasCorrection) return "correction";
+  if (item.hasSubmitted) return "submitted";
+  if (item.hasGotSlot) return "gotSubmission";
+  if (item.stage) return item.stage === "waiting" ? "waiting" : item.stage;
+  return "waiting";
+}
+
+async function fetchMonths(){
+  const res = await fetch(`${API_BASE}/months`);
+  if (!res.ok) throw new Error(`months endpoint returned ${res.status}`);
+  const json = await res.json();
+  return json.months
+    .map(m => m.value)
+    .filter(v => v >= START_MONTH)
+    .sort();
+}
+
+async function fetchMonthData(month){
+  let page = 1;
+  let totalPages = 1;
+  const rows = [];
+  let actualLabel = month;
+
+  do {
+    const res = await fetch(`${API_BASE}/proxy?month=${month}&page=${page}&pageSize=100`);
+    if (!res.ok) throw new Error(`proxy endpoint returned ${res.status} for ${month}`);
+    const json = await res.json();
+    totalPages = json.totalPages || 1;
+    actualLabel = json.sheet || json.month || month;
+    (json.data || []).forEach(item => {
+      rows.push({
+        fullName: item.fullName || "Unnamed",
+        joinDate: item.joinDate || "",
+        joinTime: item.joinTime || "",
+        stage: deriveStage(item),
+        month: actualLabel
+      });
+    });
+    page++;
+  } while (page <= totalPages);
+
+  return rows;
+}
+
+function updateStats(rows){
+  const counts = { waiting:0, gotSubmission:0, submitted:0, correction:0, appointed:0 };
+  rows.forEach(r => { if (counts[r.stage] !== undefined) counts[r.stage]++; });
+
+  document.getElementById('statTotal').textContent = rows.length;
+  document.getElementById('statWaiting').textContent = counts.waiting;
+  document.getElementById('statSubmission').textContent = counts.gotSubmission;
+  document.getElementById('statSubmitted').textContent = counts.submitted;
+  document.getElementById('statCorrection').textContent = counts.correction;
+  document.getElementById('statAppointed').textContent = counts.appointed;
+}
+
+function populateMonthFilter(labels){
+  const sel = document.getElementById('monthFilter');
+  sel.querySelectorAll('option:not([value="all"])').forEach(o => o.remove());
+  labels.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    sel.appendChild(opt);
+  });
+}
+
+function renderTable(){
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  const stage = document.getElementById('stageFilter').value;
+  const month = document.getElementById('monthFilter').value;
+
+  const filtered = allData.filter(r => {
+    if (search && !r.fullName.toLowerCase().includes(search)) return false;
+    if (stage !== 'all' && r.stage !== stage) return false;
+    if (month !== 'all' && r.month !== month) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  filtered
+    .sort((a,b) => (a.joinDate + a.joinTime).localeCompare(b.joinDate + b.joinTime))
+    .forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono">${i + 1}</td>
+        <td>${r.fullName}</td>
+        <td class="mono">${r.joinDate}</td>
+        <td class="mono">${r.joinTime}</td>
+        <td><span class="stamp ${r.stage}">${stageLabel(r.stage)}</span></td>
+        <td class="mono">${r.month}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+  document.getElementById('countPill').textContent = `Showing ${filtered.length} of ${allData.length}`;
+  document.getElementById('dataTable').style.display = filtered.length ? 'table' : 'none';
+
+  const stateMsg = document.getElementById('stateMsg');
+  if (allData.length === 0){
+    stateMsg.style.display = 'block';
+    stateMsg.textContent = 'No applicants found.';
+  } else if (filtered.length === 0){
+    stateMsg.style.display = 'block';
+    stateMsg.textContent = 'No results match your filters.';
+  } else {
+    stateMsg.style.display = 'none';
+  }
+}
+
+function sortKey(r){
+  return `${r.joinDate} ${r.joinTime}`;
+}
+
+function findCandidates(name){
+  const q = name.trim().toLowerCase();
+  if (!q) return [];
+  return allData.filter(r => r.fullName.toLowerCase().includes(q));
+}
+
+function countAhead(person){
+  // "Ahead" = still in the waiting stage AND joined before this person.
+  return allData.filter(r =>
+    r.stage === 'waiting' && sortKey(r) < sortKey(person)
+  ).length;
+}
+
+function renderCandidateList(candidates){
+  const box = document.getElementById('lookupResults');
+  if (candidates.length === 0){
+    box.innerHTML = `<div class="lookup-empty">No applicant found with that name.</div>`;
+    return;
+  }
+  const items = candidates
+    .sort((a,b) => sortKey(a).localeCompare(sortKey(b)))
+    .map((c, i) => `
+      <div class="candidate-item" data-index="${i}">
+        <div>
+          <div class="candidate-name">${c.fullName}</div>
+          <div class="candidate-meta">${c.joinDate} · ${c.joinTime} · ${c.month}</div>
+        </div>
+        <span class="stamp ${c.stage}">${stageLabel(c.stage)}</span>
+      </div>
+    `).join('');
+
+  box.innerHTML = `<div class="candidate-list">${items}</div>`;
+
+  box.querySelectorAll('.candidate-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index, 10);
+      const sorted = candidates.sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
+      renderPositionResult(sorted[idx]);
+    });
+  });
+}
+
+function renderPositionResult(person){
+  const ahead = countAhead(person);
+  const box = document.getElementById('lookupResults');
+  box.innerHTML = `
+    <div class="position-result">
+      <div class="position-num">${ahead}</div>
+      <div class="position-detail">
+        <div class="name">${person.fullName}</div>
+        <div class="meta">
+          Joined ${person.joinDate} at ${person.joinTime} (${person.month}) &middot;
+          currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span>
+        </div>
+        <div class="meta" style="margin-top:6px;">
+          ${ahead === 0
+            ? "No one still waiting is ahead of this person."
+            : `${ahead} ${ahead === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
+        </div>
+      </div>
+    </div>
+    <span class="back-link" id="backToSearch">&larr; Search another name</span>
+  `;
+  document.getElementById('backToSearch').addEventListener('click', () => {
+    box.innerHTML = '';
+    document.getElementById('lookupInput').value = '';
+    document.getElementById('lookupInput').focus();
+  });
+}
+
+function runLookup(){
+  const name = document.getElementById('lookupInput').value;
+  const candidates = findCandidates(name);
+  if (candidates.length === 1){
+    renderPositionResult(candidates[0]);
+  } else {
+    renderCandidateList(candidates);
+  }
+}
+
+document.getElementById('lookupBtn').addEventListener('click', runLookup);
+document.getElementById('lookupInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runLookup();
+});
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+async function loadData(){
+  const stateMsg = document.getElementById('stateMsg');
+  const refreshBtn = document.getElementById('refreshBtn');
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = 'Refreshing…';
+
+  try {
+    const months = await fetchMonths();
+
+    const results = await Promise.all(months.map(fetchMonthData));
+
+    // Some months share the same underlying sheet (e.g. "May & Jun 2026"),
+    // and the same sheet can occasionally contain a genuine accidental
+    // double sign-up. Dedupe on name+joinDate+joinTime either way.
+    const seen = new Set();
+    allData = [];
+    results.flat().forEach(r => {
+      const key = `${r.fullName}|${r.joinDate}|${r.joinTime}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        allData.push(r);
+      }
+    });
+
+    const uniqueLabels = [...new Set(allData.map(r => r.month))].sort();
+    populateMonthFilter(uniqueLabels);
+
+    updateStats(allData);
+    renderTable();
+
+    document.getElementById('lastUpdated').textContent =
+      new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
+    stateMsg.classList.remove('error');
+
+  } catch (err) {
+    stateMsg.classList.add('error');
+    stateMsg.style.display = 'block';
+    stateMsg.textContent =
+      `Could not load data (${err.message}). This usually means the proxy server ` +
+      `isn't running — open the browser console for details.`;
+    console.error(err);
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = 'Refresh now';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+setInterval(loadData, AUTO_REFRESH_MS);
+
+document.getElementById('searchBox').addEventListener('input', renderTable);
+document.getElementById('stageFilter').addEventListener('change', renderTable);
+document.getElementById('monthFilter').addEventListener('change', renderTable);
+
+loadData();
+</script>
+
+</body>
+</html>
