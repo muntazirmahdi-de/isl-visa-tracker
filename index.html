@@ -425,7 +425,14 @@ async function fetchMonthData(month){
 
   do {
     const res = await fetch(`${API_BASE}/proxy?month=${month}&page=${page}&pageSize=100`);
-    if (!res.ok) throw new Error(`proxy endpoint returned ${res.status} for ${month}`);
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const errJson = await res.json();
+        detail = errJson.error ? ` — ${errJson.error}` : '';
+      } catch (e) { /* body wasn't JSON, ignore */ }
+      throw new Error(`proxy endpoint returned ${res.status} for ${month}${detail}`);
+    }
     const json = await res.json();
     totalPages = json.totalPages || 1;
     actualLabel = json.sheet || json.month || month;
@@ -650,14 +657,26 @@ async function loadData(){
   try {
     const months = await fetchMonths();
 
-    const results = await Promise.all(months.map(fetchMonthData));
+    // allSettled: one failing month no longer wipes out the whole page.
+    const settled = await Promise.allSettled(months.map(fetchMonthData));
+
+    const failedMonths = [];
+    const successRows = [];
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        successRows.push(...result.value);
+      } else {
+        failedMonths.push({ month: months[i], reason: result.reason?.message || String(result.reason) });
+        console.error(`Failed to load ${months[i]}:`, result.reason);
+      }
+    });
 
     // Some months share the same underlying sheet (e.g. "May & Jun 2026"),
     // and the same sheet can occasionally contain a genuine accidental
     // double sign-up. Dedupe on name+joinDate+joinTime either way.
     const seen = new Set();
     allData = [];
-    results.flat().forEach(r => {
+    successRows.forEach(r => {
       const key = `${r.fullName}|${r.joinDate}|${r.joinTime}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -674,14 +693,29 @@ async function loadData(){
     document.getElementById('lastUpdated').textContent =
       new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
-    stateMsg.classList.remove('error');
+    if (failedMonths.length > 0 && allData.length > 0) {
+      // Partial success — show data, but flag what's missing instead of hiding it.
+      stateMsg.classList.add('error');
+      stateMsg.style.display = 'block';
+      stateMsg.textContent =
+        `Showing partial data. Failed to load: ${failedMonths.map(f => f.month).join(', ')}. ` +
+        `Check console for details.`;
+    } else if (failedMonths.length > 0 && allData.length === 0) {
+      throw new Error(failedMonths.map(f => `${f.month}: ${f.reason}`).join(' | '));
+    } else {
+      stateMsg.classList.remove('error');
+      if (allData.length === 0) {
+        stateMsg.style.display = 'block';
+        stateMsg.textContent = 'No applicants found.';
+      } else {
+        stateMsg.style.display = 'none';
+      }
+    }
 
   } catch (err) {
     stateMsg.classList.add('error');
     stateMsg.style.display = 'block';
-    stateMsg.textContent =
-      `Could not load data (${err.message}). This usually means the proxy server ` +
-      `isn't running — open the browser console for details.`;
+    stateMsg.textContent = `Could not load data (${err.message}). Open the browser console for details.`;
     console.error(err);
   } finally {
     refreshBtn.disabled = false;
