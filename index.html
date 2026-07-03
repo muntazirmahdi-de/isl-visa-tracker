@@ -8,75 +8,43 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg-a: #2A1F5C;
-    --bg-b: #163B5C;
-    --bg-c: #0E2540;
-    --glass: rgba(255,255,255,0.07);
-    --glass-strong: rgba(255,255,255,0.12);
-    --border: rgba(255,255,255,0.16);
-    --text: #EEF0FA;
-    --text-dim: #A8B0C8;
-    --gold: #E3B562;
-    --gold-dim: #B8894A;
-    --shadow: 0 8px 32px rgba(10,10,30,0.35);
+    --bg: #0B1220;
+    --surface: #121B2E;
+    --surface-2: #182238;
+    --border: #253048;
+    --text: #E8ECF4;
+    --text-dim: #8A94AC;
+    --gold: #D4A24C;
+    --gold-dim: #8C6E33;
 
-    --c-waiting: #9AA6C4;
-    --c-submission: #6FA8E8;
-    --c-submitted: #5CD1BC;
-    --c-correction: #F0925E;
-    --c-appointed: #6BDF9F;
-  }
-
-  html[data-theme="light"]{
-    --bg-a: #E9E4FF;
-    --bg-b: #DCEFFF;
-    --bg-c: #FFF4E8;
-    --glass: rgba(255,255,255,0.55);
-    --glass-strong: rgba(255,255,255,0.75);
-    --border: rgba(20,20,50,0.10);
-    --text: #1C2436;
-    --text-dim: #626C85;
-    --gold: #A5701F;
-    --gold-dim: #8C5D18;
-    --shadow: 0 8px 28px rgba(40,40,90,0.12);
-
-    --c-waiting: #5C6788;
-    --c-submission: #2E6FBE;
-    --c-submitted: #1E9683;
-    --c-correction: #C05C2E;
-    --c-appointed: #229A5C;
+    --c-waiting: #7C88A6;
+    --c-submission: #4C8BD4;
+    --c-submitted: #3FB8A6;
+    --c-correction: #D4744C;
+    --c-appointed: #4FCB8A;
   }
 
   *{box-sizing:border-box; margin:0; padding:0;}
 
   body{
-    min-height: 100vh;
-    background:
-      radial-gradient(circle at 10% 0%, var(--bg-a), transparent 55%),
-      radial-gradient(circle at 90% 10%, var(--bg-b), transparent 50%),
-      radial-gradient(circle at 50% 100%, var(--bg-c), transparent 60%),
-      var(--bg-c);
-    background-attachment: fixed;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% -10%, rgba(212,162,76,0.08), transparent 45%),
+      radial-gradient(circle at 85% 0%, rgba(76,139,212,0.06), transparent 40%);
     color: var(--text);
     font-family: 'Inter', sans-serif;
-    padding: 40px 24px 60px;
-    transition: color 0.2s;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
   }
 
   .wrap{ max-width: 1180px; margin: 0 auto; }
 
-  .glass{
-    background: var(--glass);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-  }
-
   header{
-    display:flex; justify-content:space-between; align-items:flex-start;
-    flex-wrap: wrap; gap: 16px;
-    margin-bottom: 28px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap: wrap; gap: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
   }
   .eyebrow{
     font-family:'JetBrains Mono', monospace;
@@ -87,45 +55,85 @@
   h1{
     font-family:'Fraunces', serif;
     font-weight: 600;
-    font-size: clamp(26px, 4vw, 38px);
+    font-size: clamp(28px, 4vw, 40px);
     letter-spacing: -0.01em;
     line-height: 1.1;
   }
   .subtitle{ color: var(--text-dim); margin-top: 8px; font-size: 14.5px; }
-
-  .header-right{ display:flex; align-items:center; gap: 12px; }
   .refresh-info{
     font-family:'JetBrains Mono', monospace;
     font-size: 12.5px; color: var(--text-dim); text-align:right;
   }
   #lastUpdated{ color: var(--text); }
-  .refresh-btn, #themeToggle{
-    background: var(--glass-strong);
+  .refresh-btn{
+    margin-top: 8px;
+    background: transparent;
     border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 14px;
-    border-radius: 8px;
+    color: var(--text-dim);
+    padding: 5px 12px;
+    border-radius: 6px;
     font-family:'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 11.5px;
     cursor: pointer;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
   }
-  .refresh-btn:hover, #themeToggle:hover{ border-color: var(--gold-dim); }
+  .refresh-btn:hover{ border-color: var(--gold-dim); color: var(--text); }
   .refresh-btn:disabled{ opacity: 0.5; cursor: default; }
-  #themeToggle{ font-size: 16px; padding: 8px 12px; line-height: 1; }
+
+  .stats{
+    display:grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 900px){ .stats{ grid-template-columns: repeat(3, 1fr);} }
+  @media (max-width: 520px){ .stats{ grid-template-columns: repeat(2, 1fr);} }
+
+  .stat-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width: 3px;
+  }
+  .stat-card.total::before{ background: var(--gold); }
+  .stat-card.waiting::before{ background: var(--c-waiting); }
+  .stat-card.submission::before{ background: var(--c-submission); }
+  .stat-card.submitted::before{ background: var(--c-submitted); }
+  .stat-card.correction::before{ background: var(--c-correction); }
+  .stat-card.appointed::before{ background: var(--c-appointed); }
+
+  .stat-num{
+    font-family:'Fraunces', serif;
+    font-size: 30px; font-weight: 600; line-height: 1;
+  }
+  .stat-label{
+    margin-top: 8px; font-size: 11.5px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
 
   .lookup-card{
-    border-radius: 14px;
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
     padding: 24px;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
   }
-  .lookup-title{ font-family:'Fraunces', serif; font-size: 20px; font-weight: 600; }
-  .lookup-sub{ color: var(--text-dim); font-size: 13.5px; margin-top: 4px; margin-bottom: 16px; }
+  .lookup-title{
+    font-family:'Fraunces', serif;
+    font-size: 20px; font-weight: 600;
+  }
+  .lookup-sub{
+    color: var(--text-dim); font-size: 13.5px; margin-top: 4px; margin-bottom: 16px;
+  }
   .lookup-row{ display:flex; gap: 10px; flex-wrap: wrap; }
   #lookupInput{
-    flex:1; min-width: 200px;
-    background: var(--glass-strong);
+    flex:1; min-width: 220px;
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 12px 14px;
@@ -133,14 +141,11 @@
     font-family:'Inter', sans-serif;
     font-size: 14.5px;
     outline: none;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
   }
-  #lookupInput::placeholder{ color: var(--text-dim); }
   #lookupInput:focus{ border-color: var(--gold-dim); }
   #lookupBtn{
     background: var(--gold);
-    color: #241A08;
+    color: #1A1408;
     border: none;
     padding: 12px 22px;
     border-radius: 8px;
@@ -149,14 +154,17 @@
     font-size: 14.5px;
     cursor: pointer;
   }
-  #lookupBtn:hover{ filter: brightness(1.08); }
+  #lookupBtn:hover{ background: #E3B562; }
+
   #lookupResults{ margin-top: 16px; }
 
-  .candidate-list{ display:flex; flex-direction:column; gap: 8px; }
+  .candidate-list{
+    display:flex; flex-direction:column; gap: 8px;
+  }
   .candidate-item{
-    background: var(--glass-strong);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 12px 14px;
     display:flex; justify-content:space-between; align-items:center;
     cursor: pointer;
@@ -168,45 +176,31 @@
 
   .position-result{
     display:flex; align-items:center; gap: 20px;
-    background: var(--glass-strong);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 20px;
     flex-wrap: wrap;
   }
-  .position-num{ font-family:'Fraunces', serif; font-size: 44px; font-weight: 700; color: var(--gold); line-height: 1; }
+  .position-num{
+    font-family:'Fraunces', serif;
+    font-size: 44px; font-weight: 700; color: var(--gold);
+    line-height: 1;
+  }
   .position-detail{ flex: 1; min-width: 200px; }
   .position-detail .name{ font-weight: 600; font-size: 16px; }
   .position-detail .meta{ color: var(--text-dim); font-size: 13px; margin-top: 4px; }
-
-  .share-row{ display:flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-  .share-btn{
-    background: var(--glass-strong);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 9px 16px;
-    border-radius: 8px;
-    font-family:'Inter', sans-serif;
-    font-size: 13px; font-weight: 500;
-    cursor: pointer;
-    display:flex; align-items:center; gap: 7px;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .share-btn:hover{ border-color: var(--gold-dim); }
-  .share-btn.copied{ border-color: var(--c-appointed); color: var(--c-appointed); }
-
   .back-link{
     font-family:'JetBrains Mono', monospace;
     font-size: 12px; color: var(--text-dim);
     cursor: pointer; text-decoration: underline;
-    margin-top: 14px; display:inline-block;
+    margin-top: 12px; display:inline-block;
   }
   .lookup-empty{ color: var(--text-dim); font-size: 13.5px; }
 
   .breakdown{
     margin-top: 14px;
-    background: var(--glass-strong);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 16px 18px;
@@ -222,26 +216,18 @@
     font-size: 13.5px;
   }
   .breakdown-row:last-child{ border-bottom:none; }
-  .breakdown-row .bd-count{ font-family:'JetBrains Mono', monospace; color: var(--gold); font-weight: 600; }
+  .breakdown-row .bd-count{
+    font-family:'JetBrains Mono', monospace;
+    color: var(--gold);
+    font-weight: 600;
+  }
 
-  .stats{ display:grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px; }
-  @media (max-width: 900px){ .stats{ grid-template-columns: repeat(3, 1fr);} }
-  @media (max-width: 520px){ .stats{ grid-template-columns: repeat(2, 1fr);} }
-
-  .stat-card{ border-radius: 12px; padding: 18px 16px; position: relative; overflow: hidden; }
-  .stat-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width: 3px; }
-  .stat-card.total::before{ background: var(--gold); }
-  .stat-card.waiting::before{ background: var(--c-waiting); }
-  .stat-card.submission::before{ background: var(--c-submission); }
-  .stat-card.submitted::before{ background: var(--c-submitted); }
-  .stat-card.correction::before{ background: var(--c-correction); }
-  .stat-card.appointed::before{ background: var(--c-appointed); }
-  .stat-num{ font-family:'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1; }
-  .stat-label{ margin-top: 8px; font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
-
-  .controls{ display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; align-items:center; }
+  .controls{
+    display:flex; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 20px; align-items:center;
+  }
   input[type="text"], select{
-    background: var(--glass-strong);
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 10px 14px;
@@ -249,27 +235,40 @@
     font-family:'Inter', sans-serif;
     font-size: 14px;
     outline: none;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
   }
   input[type="text"]{ flex: 1; min-width: 200px; }
   input[type="text"]:focus, select:focus{ border-color: var(--gold-dim); }
   select{ cursor:pointer; }
-  .count-pill{ font-family:'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-dim); white-space: nowrap; }
+  .count-pill{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
 
-  .table-wrap{ border-radius: 12px; overflow-x: auto; }
+  .table-wrap{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+  }
   table{ width:100%; border-collapse: collapse; min-width: 560px; }
   thead th{
-    text-align:left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    text-align:left;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
     color: var(--text-dim);
-    background: var(--glass-strong);
+    background: var(--surface-2);
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     position: sticky; top:0;
   }
-  tbody td{ padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  tbody td{
+    padding: 12px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
   tbody tr:last-child td{ border-bottom:none; }
-  tbody tr:hover{ background: rgba(255,255,255,0.04); }
+  tbody tr:hover{ background: rgba(255,255,255,0.02); }
   .mono{ font-family:'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-dim); }
 
   .stamp{
@@ -286,27 +285,18 @@
   .stamp.correction{ color: var(--c-correction); }
   .stamp.appointed{ color: var(--c-appointed); }
 
-  .state-msg{ padding: 60px 20px; text-align:center; color: var(--text-dim); font-family:'JetBrains Mono', monospace; font-size: 13px; }
-  .state-msg.error{ color: var(--c-correction); }
-
-  footer{
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-    text-align: center;
-    font-family:'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
+  .state-msg{
+    padding: 60px 20px; text-align:center; color: var(--text-dim);
+    font-family:'JetBrains Mono', monospace; font-size: 13px;
   }
-  footer a{ color: var(--text-dim); text-decoration: underline; }
-  footer a:hover{ color: var(--gold); }
+  .state-msg.error{ color: var(--c-correction); }
 
   ::selection{ background: var(--gold-dim); color: #fff; }
 
   @media (max-width: 640px){
-    body{ padding: 24px 14px 50px; }
-    header{ flex-direction: column; }
-    .header-right{ width: 100%; justify-content: space-between; }
+    body{ padding: 24px 14px 60px; }
+    header{ flex-direction: column; align-items: flex-start; gap: 10px; }
+    .refresh-info{ text-align: left; }
     .lookup-card{ padding: 18px; }
     .lookup-row{ flex-direction: column; }
     #lookupBtn{ width: 100%; }
@@ -317,9 +307,7 @@
     .stat-num{ font-size: 24px; }
     .stats{ gap: 8px; }
     .stat-card{ padding: 14px 12px; }
-    h1{ font-size: 24px; }
-    .share-row{ flex-direction: column; }
-    .share-btn{ width: 100%; justify-content: center; }
+    h1{ font-size: 26px; }
   }
 </style>
 </head>
@@ -333,16 +321,13 @@
       <h1>Applicant Tracker</h1>
       <div class="subtitle">All applicants, October 2025 &rarr; present</div>
     </div>
-    <div class="header-right">
-      <button id="themeToggle" title="Toggle light/dark">🌙</button>
-      <div class="refresh-info">
-        Last updated<br><span id="lastUpdated">—</span>
-        <div><button id="refreshBtn" class="refresh-btn">Refresh now</button></div>
-      </div>
+    <div class="refresh-info">
+      Last updated<br><span id="lastUpdated">—</span>
+      <div><button id="refreshBtn" class="refresh-btn">Refresh now</button></div>
     </div>
   </header>
 
-  <div class="lookup-card glass">
+  <div class="lookup-card">
     <div class="lookup-title">Check Queue Position</div>
     <div class="lookup-sub">Find out how many people ahead of you are still waiting.</div>
     <div class="lookup-row">
@@ -353,12 +338,12 @@
   </div>
 
   <div class="stats">
-    <div class="stat-card total glass"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
-    <div class="stat-card waiting glass"><div class="stat-num" id="statWaiting">—</div><div class="stat-label">Waiting</div></div>
-    <div class="stat-card submission glass"><div class="stat-num" id="statSubmission">—</div><div class="stat-label">Got Submission</div></div>
-    <div class="stat-card submitted glass"><div class="stat-num" id="statSubmitted">—</div><div class="stat-label">Submitted</div></div>
-    <div class="stat-card correction glass"><div class="stat-num" id="statCorrection">—</div><div class="stat-label">Correction</div></div>
-    <div class="stat-card appointed glass"><div class="stat-num" id="statAppointed">—</div><div class="stat-label">Appointed</div></div>
+    <div class="stat-card total"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card waiting"><div class="stat-num" id="statWaiting">—</div><div class="stat-label">Waiting</div></div>
+    <div class="stat-card submission"><div class="stat-num" id="statSubmission">—</div><div class="stat-label">Got Submission</div></div>
+    <div class="stat-card submitted"><div class="stat-num" id="statSubmitted">—</div><div class="stat-label">Submitted</div></div>
+    <div class="stat-card correction"><div class="stat-num" id="statCorrection">—</div><div class="stat-label">Correction</div></div>
+    <div class="stat-card appointed"><div class="stat-num" id="statAppointed">—</div><div class="stat-label">Appointed</div></div>
   </div>
 
   <div class="controls">
@@ -377,11 +362,16 @@
     <span class="count-pill" id="countPill"></span>
   </div>
 
-  <div class="table-wrap glass">
+  <div class="table-wrap">
     <table id="dataTable" style="display:none;">
       <thead>
         <tr>
-          <th>#</th><th>Name</th><th>Join Date</th><th>Join Time</th><th>Stage</th><th>Month</th>
+          <th>#</th>
+          <th>Name</th>
+          <th>Join Date</th>
+          <th>Join Time</th>
+          <th>Stage</th>
+          <th>Month</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -389,41 +379,25 @@
     <div class="state-msg" id="stateMsg">Loading applicant data…</div>
   </div>
 
-  <footer>
-    Built by Muntazir Mahdi &middot; <a href="mailto:muntazirmahdi.de@gmail.com">muntazirmahdi.de@gmail.com</a>
-  </footer>
-
 </div>
 
 <script>
 const API_BASE = "/api";
-const START_MONTH = "2025-10";
-const AUTO_REFRESH_MS = 5 * 60 * 1000;
+const START_MONTH = "2025-10"; // October 2025
 
 let allData = [];
 
-/* ---------- Theme ---------- */
-function initTheme(){
-  const saved = (() => { try { return localStorage.getItem('theme'); } catch(e){ return null; } })();
-  const preferred = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  setTheme(preferred);
-}
-function setTheme(theme){
-  document.documentElement.setAttribute('data-theme', theme);
-  document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
-  try { localStorage.setItem('theme', theme); } catch(e){ /* ignore if storage unavailable */ }
-}
-document.getElementById('themeToggle').addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  setTheme(current === 'light' ? 'dark' : 'light');
-});
-initTheme();
-
-/* ---------- Helpers ---------- */
 function stageLabel(stage){
-  const map = { waiting: "Waiting", gotSubmission: "Got Submission", submitted: "Submitted", correction: "Correction", appointed: "Appointed" };
+  const map = {
+    waiting: "Waiting",
+    gotSubmission: "Got Submission",
+    submitted: "Submitted",
+    correction: "Correction",
+    appointed: "Appointed"
+  };
   return map[stage] || stage;
 }
+
 function deriveStage(item){
   if (item.hasAppointment) return "appointed";
   if (item.hasCorrection) return "correction";
@@ -432,24 +406,20 @@ function deriveStage(item){
   if (item.stage) return item.stage === "waiting" ? "waiting" : item.stage;
   return "waiting";
 }
-function sortKey(r){ return `${r.joinDate} ${r.joinTime}`; }
-function calendarMonthKey(dateStr){ return dateStr && dateStr.length >= 7 ? dateStr.slice(0, 7) : 'unknown'; }
-function calendarMonthLabel(key){
-  if (key === 'unknown') return 'Unknown date';
-  const [y, m] = key.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-}
 
-/* ---------- Fetching ---------- */
 async function fetchMonths(){
   const res = await fetch(`${API_BASE}/months`);
   if (!res.ok) throw new Error(`months endpoint returned ${res.status}`);
   const json = await res.json();
-  return json.months.map(m => m.value).filter(v => v >= START_MONTH).sort();
+  return json.months
+    .map(m => m.value)
+    .filter(v => v >= START_MONTH)
+    .sort();
 }
 
 async function fetchMonthData(month){
-  let page = 1, totalPages = 1;
+  let page = 1;
+  let totalPages = 1;
   const rows = [];
   let actualLabel = month;
 
@@ -474,10 +444,10 @@ async function fetchMonthData(month){
   return rows;
 }
 
-/* ---------- Stats / table ---------- */
 function updateStats(rows){
   const counts = { waiting:0, gotSubmission:0, submitted:0, correction:0, appointed:0 };
   rows.forEach(r => { if (counts[r.stage] !== undefined) counts[r.stage]++; });
+
   document.getElementById('statTotal').textContent = rows.length;
   document.getElementById('statWaiting').textContent = counts.waiting;
   document.getElementById('statSubmission').textContent = counts.gotSubmission;
@@ -491,7 +461,8 @@ function populateMonthFilter(labels){
   sel.querySelectorAll('option:not([value="all"])').forEach(o => o.remove());
   labels.forEach(m => {
     const opt = document.createElement('option');
-    opt.value = m; opt.textContent = m;
+    opt.value = m;
+    opt.textContent = m;
     sel.appendChild(opt);
   });
 }
@@ -510,6 +481,7 @@ function renderTable(){
 
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = '';
+
   filtered
     .sort((a,b) => (a.joinDate + a.joinTime).localeCompare(b.joinDate + b.joinTime))
     .forEach((r, i) => {
@@ -529,20 +501,45 @@ function renderTable(){
   document.getElementById('dataTable').style.display = filtered.length ? 'table' : 'none';
 
   const stateMsg = document.getElementById('stateMsg');
-  if (allData.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No applicants found.'; }
-  else if (filtered.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No results match your filters.'; }
-  else { stateMsg.style.display = 'none'; }
+  if (allData.length === 0){
+    stateMsg.style.display = 'block';
+    stateMsg.textContent = 'No applicants found.';
+  } else if (filtered.length === 0){
+    stateMsg.style.display = 'block';
+    stateMsg.textContent = 'No results match your filters.';
+  } else {
+    stateMsg.style.display = 'none';
+  }
 }
 
-/* ---------- Queue lookup ---------- */
+function sortKey(r){
+  return `${r.joinDate} ${r.joinTime}`;
+}
+
+function calendarMonthKey(dateStr){
+  return dateStr && dateStr.length >= 7 ? dateStr.slice(0, 7) : 'unknown';
+}
+
+function calendarMonthLabel(key){
+  if (key === 'unknown') return 'Unknown date';
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+}
+
 function findCandidates(name){
   const q = name.trim().toLowerCase();
   if (!q) return [];
   return allData.filter(r => r.fullName.toLowerCase().includes(q));
 }
+
 function peopleAhead(person){
-  return allData.filter(r => r.stage === 'waiting' && sortKey(r) < sortKey(person));
+  // "Ahead" = still in the waiting stage AND joined before this person.
+  return allData.filter(r =>
+    r.stage === 'waiting' && sortKey(r) < sortKey(person)
+  );
 }
+
 function countAheadByMonth(person){
   const ahead = peopleAhead(person);
   const counts = {};
@@ -553,43 +550,32 @@ function countAheadByMonth(person){
   return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-function buildShareText(person, ahead, breakdown){
-  const lines = [
-    `ISL Visa Queue Status`,
-    ``,
-    `Name: ${person.fullName}`,
-    `Joined: ${person.joinDate} at ${person.joinTime}`,
-    `Status: ${stageLabel(person.stage)}`,
-    ``,
-    `People ahead of you (waiting only): ${ahead.length}`,
-  ];
-  if (breakdown.length){
-    lines.push(``, `Breakdown by join month:`);
-    breakdown.forEach(([key, count]) => lines.push(`  ${calendarMonthLabel(key)}: ${count}`));
-  }
-  lines.push(``, `Checked: ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`);
-  return lines.join('\n');
-}
-
 function renderCandidateList(candidates){
   const box = document.getElementById('lookupResults');
   if (candidates.length === 0){
     box.innerHTML = `<div class="lookup-empty">No applicant found with that name.</div>`;
     return;
   }
-  const sorted = candidates.sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
-  const items = sorted.map((c, i) => `
-    <div class="candidate-item" data-index="${i}">
-      <div>
-        <div class="candidate-name">${c.fullName}</div>
-        <div class="candidate-meta">${c.joinDate} · ${c.joinTime} · ${c.month}</div>
+  const items = candidates
+    .sort((a,b) => sortKey(a).localeCompare(sortKey(b)))
+    .map((c, i) => `
+      <div class="candidate-item" data-index="${i}">
+        <div>
+          <div class="candidate-name">${c.fullName}</div>
+          <div class="candidate-meta">${c.joinDate} · ${c.joinTime} · ${c.month}</div>
+        </div>
+        <span class="stamp ${c.stage}">${stageLabel(c.stage)}</span>
       </div>
-      <span class="stamp ${c.stage}">${stageLabel(c.stage)}</span>
-    </div>
-  `).join('');
+    `).join('');
+
   box.innerHTML = `<div class="candidate-list">${items}</div>`;
+
   box.querySelectorAll('.candidate-item').forEach(el => {
-    el.addEventListener('click', () => renderPositionResult(sorted[parseInt(el.dataset.index, 10)]));
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index, 10);
+      const sorted = candidates.sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
+      renderPositionResult(sorted[idx]);
+    });
   });
 }
 
@@ -598,180 +584,63 @@ function renderPositionResult(person){
   const breakdown = countAheadByMonth(person);
   const box = document.getElementById('lookupResults');
 
-  const breakdownHtml = breakdown.length === 0 ? '' : `
-    <div class="breakdown">
-      <div class="breakdown-title">People ahead of you, by join month</div>
-      ${breakdown.map(([key, count]) => `
-        <div class="breakdown-row"><span>${calendarMonthLabel(key)}</span><span class="bd-count">${count}</span></div>
-      `).join('')}
-    </div>
-  `;
+  const breakdownHtml = breakdown.length === 0
+    ? ''
+    : `
+      <div class="breakdown">
+        <div class="breakdown-title">People ahead of you, by join month</div>
+        ${breakdown.map(([key, count]) => `
+          <div class="breakdown-row">
+            <span>${calendarMonthLabel(key)}</span>
+            <span class="bd-count">${count}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
 
   box.innerHTML = `
     <div class="position-result">
       <div class="position-num">${ahead.length}</div>
       <div class="position-detail">
         <div class="name">${person.fullName}</div>
-        <div class="meta">Joined ${person.joinDate} at ${person.joinTime} &middot; currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span></div>
+        <div class="meta">
+          Joined ${person.joinDate} at ${person.joinTime} &middot;
+          currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span>
+        </div>
         <div class="meta" style="margin-top:6px;">
-          ${ahead.length === 0 ? "No one still waiting is ahead of this person." : `${ahead.length} ${ahead.length === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
+          ${ahead.length === 0
+            ? "No one still waiting is ahead of this person."
+            : `${ahead.length} ${ahead.length === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
         </div>
       </div>
     </div>
     ${breakdownHtml}
-    <div class="share-row">
-      <button class="share-btn" id="copyBtn">📋 Copy results</button>
-      <button class="share-btn" id="downloadBtn">🖼️ Download image</button>
-    </div>
     <span class="back-link" id="backToSearch">&larr; Search another name</span>
   `;
-
   document.getElementById('backToSearch').addEventListener('click', () => {
     box.innerHTML = '';
     document.getElementById('lookupInput').value = '';
     document.getElementById('lookupInput').focus();
   });
-
-  document.getElementById('copyBtn').addEventListener('click', async (e) => {
-    const text = buildShareText(person, ahead, breakdown);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const btn = e.currentTarget;
-    const original = btn.textContent;
-    btn.textContent = '✓ Copied';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 2000);
-  });
-
-  document.getElementById('downloadBtn').addEventListener('click', () => {
-    downloadResultImage(person, ahead, breakdown);
-  });
-}
-
-/* ---------- PNG export ---------- */
-function downloadResultImage(person, ahead, breakdown){
-  const W = 900, H = 1150;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#2A1F5C');
-  grad.addColorStop(0.5, '#163B5C');
-  grad.addColorStop(1, '#0E2540');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  function roundRect(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  const pad = 60;
-  ctx.fillStyle = 'rgba(255,255,255,0.07)';
-  roundRect(pad, pad, W - pad * 2, H - pad * 2, 24);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 1.5;
-  roundRect(pad, pad, W - pad * 2, H - pad * 2, 24);
-  ctx.stroke();
-
-  let y = pad + 70;
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '600 15px "Courier New", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('ISL · ISLAMABAD VISA QUEUE', W / 2, y);
-
-  y += 46;
-  ctx.fillStyle = '#EEF0FA';
-  ctx.font = '700 34px Georgia, serif';
-  ctx.fillText(person.fullName, W / 2, y);
-
-  y += 34;
-  ctx.fillStyle = '#A8B0C8';
-  ctx.font = '15px "Courier New", monospace';
-  ctx.fillText(`Joined ${person.joinDate} at ${person.joinTime}`, W / 2, y);
-
-  y += 30;
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '600 14px "Courier New", monospace';
-  ctx.fillText(`STATUS: ${stageLabel(person.stage).toUpperCase()}`, W / 2, y);
-
-  y += 90;
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '700 100px Georgia, serif';
-  ctx.fillText(String(ahead.length), W / 2, y);
-
-  y += 40;
-  ctx.fillStyle = '#EEF0FA';
-  ctx.font = '16px Arial, sans-serif';
-  ctx.fillText('people ahead of you, still waiting', W / 2, y);
-
-  y += 60;
-  if (breakdown.length){
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#A8B0C8';
-    ctx.font = '600 12px Arial, sans-serif';
-    ctx.fillText('BREAKDOWN BY JOIN MONTH', pad + 40, y);
-    y += 14;
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath(); ctx.moveTo(pad + 40, y); ctx.lineTo(W - pad - 40, y); ctx.stroke();
-    y += 30;
-    breakdown.forEach(([key, count]) => {
-      ctx.fillStyle = '#EEF0FA';
-      ctx.font = '15px Arial, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(calendarMonthLabel(key), pad + 40, y);
-      ctx.fillStyle = '#E3B562';
-      ctx.font = '600 15px "Courier New", monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(String(count), W - pad - 40, y);
-      y += 32;
-    });
-  }
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#7A8298';
-  ctx.font = '12px "Courier New", monospace';
-  ctx.fillText(`Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`, W / 2, H - pad - 34);
-  ctx.fillText('Built by Muntazir Mahdi · muntazirmahdi.de@gmail.com', W / 2, H - pad - 14);
-
-  canvas.toBlob((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const safeName = person.fullName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-    a.href = url;
-    a.download = `visa-status-${safeName}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 'image/png');
 }
 
 function runLookup(){
   const name = document.getElementById('lookupInput').value;
   const candidates = findCandidates(name);
-  if (candidates.length === 1) renderPositionResult(candidates[0]);
-  else renderCandidateList(candidates);
+  if (candidates.length === 1){
+    renderPositionResult(candidates[0]);
+  } else {
+    renderCandidateList(candidates);
+  }
 }
-document.getElementById('lookupBtn').addEventListener('click', runLookup);
-document.getElementById('lookupInput').addEventListener('keydown', e => { if (e.key === 'Enter') runLookup(); });
 
-/* ---------- Load / refresh ---------- */
+document.getElementById('lookupBtn').addEventListener('click', runLookup);
+document.getElementById('lookupInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runLookup();
+});
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
 async function loadData(){
   const stateMsg = document.getElementById('stateMsg');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -780,13 +649,20 @@ async function loadData(){
 
   try {
     const months = await fetchMonths();
+
     const results = await Promise.all(months.map(fetchMonthData));
 
+    // Some months share the same underlying sheet (e.g. "May & Jun 2026"),
+    // and the same sheet can occasionally contain a genuine accidental
+    // double sign-up. Dedupe on name+joinDate+joinTime either way.
     const seen = new Set();
     allData = [];
     results.flat().forEach(r => {
       const key = `${r.fullName}|${r.joinDate}|${r.joinTime}`;
-      if (!seen.has(key)) { seen.add(key); allData.push(r); }
+      if (!seen.has(key)) {
+        seen.add(key);
+        allData.push(r);
+      }
     });
 
     const uniqueLabels = [...new Set(allData.map(r => r.month))].sort();
@@ -797,12 +673,15 @@ async function loadData(){
 
     document.getElementById('lastUpdated').textContent =
       new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
     stateMsg.classList.remove('error');
 
   } catch (err) {
     stateMsg.classList.add('error');
     stateMsg.style.display = 'block';
-    stateMsg.textContent = `Could not load data (${err.message}). Open the browser console for details.`;
+    stateMsg.textContent =
+      `Could not load data (${err.message}). This usually means the proxy server ` +
+      `isn't running — open the browser console for details.`;
     console.error(err);
   } finally {
     refreshBtn.disabled = false;
@@ -811,10 +690,11 @@ async function loadData(){
 }
 
 document.getElementById('refreshBtn').addEventListener('click', loadData);
+setInterval(loadData, AUTO_REFRESH_MS);
+
 document.getElementById('searchBox').addEventListener('input', renderTable);
 document.getElementById('stageFilter').addEventListener('change', renderTable);
 document.getElementById('monthFilter').addEventListener('change', renderTable);
-setInterval(loadData, AUTO_REFRESH_MS);
 
 loadData();
 </script>
