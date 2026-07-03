@@ -198,6 +198,30 @@
   }
   .lookup-empty{ color: var(--text-dim); font-size: 13.5px; }
 
+  .breakdown{
+    margin-top: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .breakdown-title{
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-dim); margin-bottom: 10px;
+  }
+  .breakdown-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+  }
+  .breakdown-row:last-child{ border-bottom:none; }
+  .breakdown-row .bd-count{
+    font-family:'JetBrains Mono', monospace;
+    color: var(--gold);
+    font-weight: 600;
+  }
+
   .controls{
     display:flex; gap: 12px; flex-wrap: wrap;
     margin-bottom: 20px; align-items:center;
@@ -226,9 +250,9 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: auto;
   }
-  table{ width:100%; border-collapse: collapse; }
+  table{ width:100%; border-collapse: collapse; min-width: 560px; }
   thead th{
     text-align:left;
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
@@ -268,6 +292,23 @@
   .state-msg.error{ color: var(--c-correction); }
 
   ::selection{ background: var(--gold-dim); color: #fff; }
+
+  @media (max-width: 640px){
+    body{ padding: 24px 14px 60px; }
+    header{ flex-direction: column; align-items: flex-start; gap: 10px; }
+    .refresh-info{ text-align: left; }
+    .lookup-card{ padding: 18px; }
+    .lookup-row{ flex-direction: column; }
+    #lookupBtn{ width: 100%; }
+    .controls{ flex-direction: column; align-items: stretch; }
+    .controls select{ width: 100%; }
+    .position-result{ flex-direction: column; align-items: flex-start; gap: 10px; }
+    .position-num{ font-size: 36px; }
+    .stat-num{ font-size: 24px; }
+    .stats{ gap: 8px; }
+    .stat-card{ padding: 14px 12px; }
+    h1{ font-size: 26px; }
+  }
 </style>
 </head>
 <body>
@@ -341,7 +382,7 @@
 </div>
 
 <script>
-const API_BASE = "/api";
+const API_BASE = "http://localhost:5001/api";
 const START_MONTH = "2025-10"; // October 2025
 
 let allData = [];
@@ -475,17 +516,38 @@ function sortKey(r){
   return `${r.joinDate} ${r.joinTime}`;
 }
 
+function calendarMonthKey(dateStr){
+  return dateStr && dateStr.length >= 7 ? dateStr.slice(0, 7) : 'unknown';
+}
+
+function calendarMonthLabel(key){
+  if (key === 'unknown') return 'Unknown date';
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+}
+
 function findCandidates(name){
   const q = name.trim().toLowerCase();
   if (!q) return [];
   return allData.filter(r => r.fullName.toLowerCase().includes(q));
 }
 
-function countAhead(person){
+function peopleAhead(person){
   // "Ahead" = still in the waiting stage AND joined before this person.
   return allData.filter(r =>
     r.stage === 'waiting' && sortKey(r) < sortKey(person)
-  ).length;
+  );
+}
+
+function countAheadByMonth(person){
+  const ahead = peopleAhead(person);
+  const counts = {};
+  ahead.forEach(r => {
+    const key = calendarMonthKey(r.joinDate);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 function renderCandidateList(candidates){
@@ -518,24 +580,41 @@ function renderCandidateList(candidates){
 }
 
 function renderPositionResult(person){
-  const ahead = countAhead(person);
+  const ahead = peopleAhead(person);
+  const breakdown = countAheadByMonth(person);
   const box = document.getElementById('lookupResults');
+
+  const breakdownHtml = breakdown.length === 0
+    ? ''
+    : `
+      <div class="breakdown">
+        <div class="breakdown-title">People ahead of you, by join month</div>
+        ${breakdown.map(([key, count]) => `
+          <div class="breakdown-row">
+            <span>${calendarMonthLabel(key)}</span>
+            <span class="bd-count">${count}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
   box.innerHTML = `
     <div class="position-result">
-      <div class="position-num">${ahead}</div>
+      <div class="position-num">${ahead.length}</div>
       <div class="position-detail">
         <div class="name">${person.fullName}</div>
         <div class="meta">
-          Joined ${person.joinDate} at ${person.joinTime} (${person.month}) &middot;
+          Joined ${person.joinDate} at ${person.joinTime} &middot;
           currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span>
         </div>
         <div class="meta" style="margin-top:6px;">
-          ${ahead === 0
+          ${ahead.length === 0
             ? "No one still waiting is ahead of this person."
-            : `${ahead} ${ahead === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
+            : `${ahead.length} ${ahead.length === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
         </div>
       </div>
     </div>
+    ${breakdownHtml}
     <span class="back-link" id="backToSearch">&larr; Search another name</span>
   `;
   document.getElementById('backToSearch').addEventListener('click', () => {
