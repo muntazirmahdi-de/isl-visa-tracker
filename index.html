@@ -560,21 +560,33 @@ function countAheadByMonth(person){
   return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+const STAGE_EMOJI = {
+  waiting: "⏳",
+  gotSubmission: "📨",
+  submitted: "✅",
+  correction: "✏️",
+  appointed: "🎉"
+};
+
 function buildShareText(person, ahead, breakdown){
+  const emoji = STAGE_EMOJI[person.stage] || "🛂";
   const lines = [
-    `ISL Visa Queue Status`,
+    `🛂 *ISL Visa Queue Status*`,
     ``,
-    `Name: ${person.fullName}`,
-    `Joined: ${person.joinDate} at ${person.joinTime}`,
-    `Status: ${stageLabel(person.stage)}`,
+    `👤 *Name:* ${person.fullName}`,
+    `📅 *Joined:* ${person.joinDate} at ${person.joinTime}`,
+    `${emoji} *Status:* ${stageLabel(person.stage)}`,
     ``,
-    `People ahead of you (waiting only): ${ahead.length}`,
+    `🔢 *People ahead of you:* ${ahead.length}`,
   ];
   if (breakdown.length){
-    lines.push(``, `Breakdown by join month:`);
-    breakdown.forEach(([key, count]) => lines.push(`  ${calendarMonthLabel(key)}: ${count}`));
+    lines.push(``, `📊 *Breakdown by join month:*`);
+    breakdown.forEach(([key, count]) => lines.push(`▫️ ${calendarMonthLabel(key)}: *${count}*`));
   }
-  lines.push(``, `Checked: ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`);
+  lines.push(
+    ``,
+    `🕒 _Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}_`
+  );
   return lines.join('\n');
 }
 
@@ -664,18 +676,38 @@ function renderPositionResult(person){
 }
 
 /* ---------- PNG export ---------- */
+const STAGE_COLORS = {
+  waiting: '#9AA6C4',
+  gotSubmission: '#6FA8E8',
+  submitted: '#5CD1BC',
+  correction: '#F0925E',
+  appointed: '#6BDF9F'
+};
+
+function wrapText(ctx, text, maxWidth){
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach(word => {
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && current){
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+}
+
 function downloadResultImage(person, ahead, breakdown){
-  const W = 900, H = 1150;
+  // 9:16 — fits a phone screen / WhatsApp status / IG story without cropping.
+  const W = 1080, H = 1920;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#2A1F5C');
-  grad.addColorStop(0.5, '#163B5C');
-  grad.addColorStop(1, '#0E2540');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  const accent = STAGE_COLORS[person.stage] || '#E3B562';
 
   function roundRect(x, y, w, h, r){
     ctx.beginPath();
@@ -687,74 +719,142 @@ function downloadResultImage(person, ahead, breakdown){
     ctx.closePath();
   }
 
-  const pad = 60;
-  ctx.fillStyle = 'rgba(255,255,255,0.07)';
-  roundRect(pad, pad, W - pad * 2, H - pad * 2, 24);
+  // Background
+  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, '#2A1F5C');
+  bgGrad.addColorStop(0.5, '#163B5C');
+  bgGrad.addColorStop(1, '#0E2540');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Soft radial glow behind the card, tinted to the stage color
+  const glow = ctx.createRadialGradient(W/2, 520, 60, W/2, 520, 620);
+  glow.addColorStop(0, accent + '33');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Main card
+  const pad = 64;
+  const cardY = 140;
+  const cardH = H - cardY - 120;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  roundRect(pad, cardY, W - pad * 2, cardH, 32);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 1.5;
-  roundRect(pad, pad, W - pad * 2, H - pad * 2, 24);
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 2;
+  roundRect(pad, cardY, W - pad * 2, cardH, 32);
   ctx.stroke();
 
-  let y = pad + 70;
+  // Accent bar at top of card
+  ctx.fillStyle = accent;
+  roundRect(pad, cardY, W - pad * 2, 8, 4);
+  ctx.fill();
+
+  let y = 96;
+  // Eyebrow / brand
   ctx.fillStyle = '#E3B562';
-  ctx.font = '600 15px "Courier New", monospace';
+  ctx.font = '600 26px "Courier New", monospace';
   ctx.textAlign = 'center';
+  ctx.letterSpacing = '2px';
   ctx.fillText('ISL · ISLAMABAD VISA QUEUE', W / 2, y);
+  ctx.letterSpacing = '0px';
 
-  y += 46;
-  ctx.fillStyle = '#EEF0FA';
-  ctx.font = '700 34px Georgia, serif';
-  ctx.fillText(person.fullName, W / 2, y);
-
-  y += 34;
-  ctx.fillStyle = '#A8B0C8';
-  ctx.font = '15px "Courier New", monospace';
-  ctx.fillText(`Joined ${person.joinDate} at ${person.joinTime}`, W / 2, y);
-
-  y += 30;
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '600 14px "Courier New", monospace';
-  ctx.fillText(`STATUS: ${stageLabel(person.stage).toUpperCase()}`, W / 2, y);
+  y = cardY + 90;
+  // Status pill
+  const pillLabel = stageLabel(person.stage).toUpperCase();
+  ctx.font = '600 26px Arial, sans-serif';
+  const pillTextWidth = ctx.measureText(pillLabel).width;
+  const pillW = pillTextWidth + 64;
+  const pillH = 56;
+  const pillX = (W - pillW) / 2;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.5;
+  roundRect(pillX, y - pillH/2 - 8, pillW, pillH, pillH/2);
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.textAlign = 'center';
+  ctx.fillText(pillLabel, W / 2, y + 12 - pillH/2 + pillH/2 - 2);
 
   y += 90;
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '700 100px Georgia, serif';
+  // Name
+  ctx.fillStyle = '#EEF0FA';
+  ctx.font = '700 56px Georgia, serif';
+  const nameLines = wrapText(ctx, person.fullName, W - pad * 2 - 100);
+  nameLines.forEach(line => {
+    ctx.fillText(line, W / 2, y);
+    y += 64;
+  });
+
+  y += 6;
+  ctx.fillStyle = '#A8B0C8';
+  ctx.font = '28px "Courier New", monospace';
+  ctx.fillText(`Joined ${person.joinDate} at ${person.joinTime}`, W / 2, y);
+
+  y += 70;
+  // Divider
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad + 60, y);
+  ctx.lineTo(W - pad - 60, y);
+  ctx.stroke();
+
+  y += 100;
+  // Big number
+  ctx.fillStyle = accent;
+  ctx.font = '700 190px Georgia, serif';
   ctx.fillText(String(ahead.length), W / 2, y);
 
-  y += 40;
+  y += 56;
   ctx.fillStyle = '#EEF0FA';
-  ctx.font = '16px Arial, sans-serif';
+  ctx.font = '30px Arial, sans-serif';
   ctx.fillText('people ahead of you, still waiting', W / 2, y);
 
-  y += 60;
+  y += 70;
   if (breakdown.length){
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.beginPath();
+    ctx.moveTo(pad + 60, y);
+    ctx.lineTo(W - pad - 60, y);
+    ctx.stroke();
+
+    y += 56;
     ctx.textAlign = 'left';
     ctx.fillStyle = '#A8B0C8';
-    ctx.font = '600 12px Arial, sans-serif';
-    ctx.fillText('BREAKDOWN BY JOIN MONTH', pad + 40, y);
-    y += 14;
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath(); ctx.moveTo(pad + 40, y); ctx.lineTo(W - pad - 40, y); ctx.stroke();
-    y += 30;
-    breakdown.forEach(([key, count]) => {
+    ctx.font = '600 24px Arial, sans-serif';
+    ctx.fillText('BREAKDOWN BY JOIN MONTH', pad + 60, y);
+
+    y += 44;
+    const maxRows = Math.min(breakdown.length, 6);
+    for (let i = 0; i < maxRows; i++){
+      const [key, count] = breakdown[i];
       ctx.fillStyle = '#EEF0FA';
-      ctx.font = '15px Arial, sans-serif';
+      ctx.font = '28px Arial, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(calendarMonthLabel(key), pad + 40, y);
-      ctx.fillStyle = '#E3B562';
-      ctx.font = '600 15px "Courier New", monospace';
+      ctx.fillText(calendarMonthLabel(key), pad + 60, y);
+      ctx.fillStyle = accent;
+      ctx.font = '600 28px "Courier New", monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(String(count), W - pad - 40, y);
-      y += 32;
-    });
+      ctx.fillText(String(count), W - pad - 60, y);
+      y += 54;
+    }
+    if (breakdown.length > maxRows){
+      ctx.fillStyle = '#7A8298';
+      ctx.font = '24px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`+ ${breakdown.length - maxRows} more month${breakdown.length - maxRows > 1 ? 's' : ''}`, W / 2, y + 10);
+    }
   }
 
+  // Footer
   ctx.textAlign = 'center';
   ctx.fillStyle = '#7A8298';
-  ctx.font = '12px "Courier New", monospace';
-  ctx.fillText(`Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`, W / 2, H - pad - 34);
-  ctx.fillText('Built by Muntazir Mahdi · muntazirmahdi.de@gmail.com', W / 2, H - pad - 14);
+  ctx.font = '22px "Courier New", monospace';
+  ctx.fillText(`Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`, W / 2, H - 96);
+  ctx.fillStyle = '#8A94AC';
+  ctx.font = '22px "Courier New", monospace';
+  ctx.fillText('Built by Muntazir Mahdi · muntazirmahdi.de@gmail.com', W / 2, H - 60);
 
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
