@@ -677,11 +677,11 @@ function renderPositionResult(person){
 
 /* ---------- PNG export ---------- */
 const STAGE_COLORS = {
-  waiting: '#9AA6C4',
-  gotSubmission: '#6FA8E8',
-  submitted: '#5CD1BC',
-  correction: '#F0925E',
-  appointed: '#6BDF9F'
+  waiting: '#64748B',
+  gotSubmission: '#2563EB',
+  submitted: '#059669',
+  correction: '#EA580C',
+  appointed: '#16A34A'
 };
 
 function wrapText(ctx, text, maxWidth){
@@ -702,146 +702,137 @@ function wrapText(ctx, text, maxWidth){
 }
 
 function downloadResultImage(person, ahead, breakdown){
-  // 9:16 — fits a phone screen / WhatsApp status / IG story without cropping.
-  const W = 1080, H = 1920;
+  // 4:5 -- clean portrait ratio, no wasted whitespace, safe for WhatsApp/IG.
+  const W = 1080, H = 1350;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const accent = STAGE_COLORS[person.stage] || '#E3B562';
+  const FONT = 'Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  const INK = '#111827';
+  const SUB = '#6B7280';
+  const FAINT = '#9CA3AF';
+  const LINE = '#E5E7EB';
+  const accent = STAGE_COLORS[person.stage] || '#111827';
 
-  function roundRect(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  // Background
-  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-  bgGrad.addColorStop(0, '#2A1F5C');
-  bgGrad.addColorStop(0.5, '#163B5C');
-  bgGrad.addColorStop(1, '#0E2540');
-  ctx.fillStyle = bgGrad;
+  // Flat white background -- the "card" is the whole canvas.
+  ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, W, H);
 
-  // Soft radial glow behind the card, tinted to the stage color
-  const glow = ctx.createRadialGradient(W/2, 520, 60, W/2, 520, 620);
-  glow.addColorStop(0, accent + '33');
-  glow.addColorStop(1, 'transparent');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-
-  // Main card
-  const pad = 64;
-  const cardY = 140;
-  const cardH = H - cardY - 120;
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  roundRect(pad, cardY, W - pad * 2, cardH, 32);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-  ctx.lineWidth = 2;
-  roundRect(pad, cardY, W - pad * 2, cardH, 32);
-  ctx.stroke();
-
-  // Accent bar at top of card
+  // Thin accent bar at the very top -- quick visual status read.
   ctx.fillStyle = accent;
-  roundRect(pad, cardY, W - pad * 2, 8, 4);
-  ctx.fill();
+  ctx.fillRect(0, 0, W, 10);
 
-  let y = 96;
+  const pad = 90;
+  let y = 120;
+
   // Eyebrow / brand
-  ctx.fillStyle = '#E3B562';
-  ctx.font = '600 26px "Courier New", monospace';
+  ctx.fillStyle = FAINT;
+  ctx.font = `600 24px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.letterSpacing = '2px';
-  ctx.fillText('ISL · ISLAMABAD VISA QUEUE', W / 2, y);
+  ctx.letterSpacing = '3px';
+  ctx.fillText('ISL VISA QUEUE', W / 2, y);
   ctx.letterSpacing = '0px';
 
-  y = cardY + 90;
-  // Status pill
-  const pillLabel = stageLabel(person.stage).toUpperCase();
-  ctx.font = '600 26px Arial, sans-serif';
-  const pillTextWidth = ctx.measureText(pillLabel).width;
-  const pillW = pillTextWidth + 64;
-  const pillH = 56;
-  const pillX = (W - pillW) / 2;
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 2.5;
-  roundRect(pillX, y - pillH/2 - 8, pillW, pillH, pillH/2);
-  ctx.stroke();
-  ctx.fillStyle = accent;
-  ctx.textAlign = 'center';
-  ctx.fillText(pillLabel, W / 2, y + 12 - pillH/2 + pillH/2 - 2);
-
-  y += 90;
-  // Name
-  ctx.fillStyle = '#EEF0FA';
-  ctx.font = '700 56px Georgia, serif';
-  const nameLines = wrapText(ctx, person.fullName, W - pad * 2 - 100);
+  y += 70;
+  // Name (wraps if long)
+  ctx.fillStyle = INK;
+  ctx.font = `700 60px ${FONT}`;
+  const nameLines = wrapText(ctx, person.fullName, W - pad * 2);
   nameLines.forEach(line => {
     ctx.fillText(line, W / 2, y);
-    y += 64;
+    y += 68;
   });
 
   y += 6;
-  ctx.fillStyle = '#A8B0C8';
-  ctx.font = '28px "Courier New", monospace';
+  ctx.fillStyle = SUB;
+  ctx.font = `400 28px ${FONT}`;
   ctx.fillText(`Joined ${person.joinDate} at ${person.joinTime}`, W / 2, y);
 
-  y += 70;
-  // Divider
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  y += 58;
+  // Status pill -- outline only, accent-colored text
+  const pillLabel = stageLabel(person.stage).toUpperCase();
+  ctx.font = `600 24px ${FONT}`;
+  ctx.letterSpacing = '1px';
+  const pillTextW = ctx.measureText(pillLabel).width;
+  const pillW = pillTextW + 56;
+  const pillH = 52;
+  const pillX = (W - pillW) / 2;
+  const pillY = y - pillH / 2;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pillX + pillH/2, pillY);
+  ctx.lineTo(pillX + pillW - pillH/2, pillY);
+  ctx.arc(pillX + pillW - pillH/2, pillY + pillH/2, pillH/2, -Math.PI/2, Math.PI/2);
+  ctx.lineTo(pillX + pillH/2, pillY + pillH);
+  ctx.arc(pillX + pillH/2, pillY + pillH/2, pillH/2, Math.PI/2, -Math.PI/2);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.fillText(pillLabel, W / 2, y + 8);
+  ctx.letterSpacing = '0px';
+
+  y += 90;
+  ctx.strokeStyle = LINE;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(pad + 60, y);
-  ctx.lineTo(W - pad - 60, y);
+  ctx.moveTo(pad, y);
+  ctx.lineTo(W - pad, y);
   ctx.stroke();
 
-  y += 100;
-  // Big number
+  y += 130;
+  // Headline number
   ctx.fillStyle = accent;
-  ctx.font = '700 190px Georgia, serif';
+  ctx.font = `800 200px ${FONT}`;
   ctx.fillText(String(ahead.length), W / 2, y);
 
-  y += 56;
-  ctx.fillStyle = '#EEF0FA';
-  ctx.font = '30px Arial, sans-serif';
+  y += 54;
+  ctx.fillStyle = SUB;
+  ctx.font = `400 30px ${FONT}`;
   ctx.fillText('people ahead of you, still waiting', W / 2, y);
 
   y += 70;
+  ctx.strokeStyle = LINE;
+  ctx.beginPath();
+  ctx.moveTo(pad, y);
+  ctx.lineTo(W - pad, y);
+  ctx.stroke();
+
+  y += 60;
   if (breakdown.length){
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-    ctx.beginPath();
-    ctx.moveTo(pad + 60, y);
-    ctx.lineTo(W - pad - 60, y);
-    ctx.stroke();
-
-    y += 56;
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#A8B0C8';
-    ctx.font = '600 24px Arial, sans-serif';
-    ctx.fillText('BREAKDOWN BY JOIN MONTH', pad + 60, y);
+    ctx.fillStyle = FAINT;
+    ctx.font = `600 22px ${FONT}`;
+    ctx.letterSpacing = '2px';
+    ctx.fillText('BREAKDOWN BY JOIN MONTH', pad, y);
+    ctx.letterSpacing = '0px';
 
-    y += 44;
+    y += 46;
     const maxRows = Math.min(breakdown.length, 6);
     for (let i = 0; i < maxRows; i++){
       const [key, count] = breakdown[i];
-      ctx.fillStyle = '#EEF0FA';
-      ctx.font = '28px Arial, sans-serif';
+      ctx.fillStyle = INK;
+      ctx.font = `400 30px ${FONT}`;
       ctx.textAlign = 'left';
-      ctx.fillText(calendarMonthLabel(key), pad + 60, y);
+      ctx.fillText(calendarMonthLabel(key), pad, y);
       ctx.fillStyle = accent;
-      ctx.font = '600 28px "Courier New", monospace';
+      ctx.font = `700 30px ${FONT}`;
       ctx.textAlign = 'right';
-      ctx.fillText(String(count), W - pad - 60, y);
+      ctx.fillText(String(count), W - pad, y);
+
+      if (i < maxRows - 1){
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, y + 22);
+        ctx.lineTo(W - pad, y + 22);
+        ctx.stroke();
+      }
       y += 54;
     }
     if (breakdown.length > maxRows){
-      ctx.fillStyle = '#7A8298';
-      ctx.font = '24px Arial, sans-serif';
+      ctx.fillStyle = FAINT;
+      ctx.font = `400 24px ${FONT}`;
       ctx.textAlign = 'center';
       ctx.fillText(`+ ${breakdown.length - maxRows} more month${breakdown.length - maxRows > 1 ? 's' : ''}`, W / 2, y + 10);
     }
@@ -849,12 +840,10 @@ function downloadResultImage(person, ahead, breakdown){
 
   // Footer
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#7A8298';
-  ctx.font = '22px "Courier New", monospace';
-  ctx.fillText(`Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`, W / 2, H - 96);
-  ctx.fillStyle = '#8A94AC';
-  ctx.font = '22px "Courier New", monospace';
-  ctx.fillText('Built by Muntazir Mahdi · muntazirmahdi.de@gmail.com', W / 2, H - 60);
+  ctx.fillStyle = FAINT;
+  ctx.font = `400 22px ${FONT}`;
+  ctx.fillText(`Checked ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`, W / 2, H - 76);
+  ctx.fillText('Built by Muntazir Mahdi · muntazirmahdi.de@gmail.com', W / 2, H - 44);
 
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
