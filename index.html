@@ -701,6 +701,26 @@ function wrapText(ctx, text, maxWidth){
   return lines;
 }
 
+function shadeColor(hex, percent){
+  // percent: negative darkens, positive lightens
+  const num = parseInt(hex.replace('#',''), 16);
+  let r = (num >> 16) + Math.round(255 * percent);
+  let g = ((num >> 8) & 0x00FF) + Math.round(255 * percent);
+  let b = (num & 0x0000FF) + Math.round(255 * percent);
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function hexToRgba(hex, alpha){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = (num >> 16) & 0xFF;
+  const g = (num >> 8) & 0xFF;
+  const b = num & 0xFF;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function downloadResultImage(person, ahead, breakdown){
   // 4:5 -- clean portrait ratio, no wasted whitespace, safe for WhatsApp/IG.
   const W = 1080, H = 1350;
@@ -712,30 +732,33 @@ function downloadResultImage(person, ahead, breakdown){
   const SUB = '#6B7280';
   const FAINT = '#9CA3AF';
   const LINE = '#E5E7EB';
-  const accent = STAGE_COLORS[person.stage] || '#111827';
+  const accent = STAGE_COLORS[person.stage] || '#334155';
+  const accentDark = shadeColor(accent, -0.22);
 
-  // Flat white background -- the "card" is the whole canvas.
+  // White body background
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, W, H);
 
-  // Thin accent bar at the very top -- quick visual status read.
-  ctx.fillStyle = accent;
-  ctx.fillRect(0, 0, W, 10);
+  // --- Colored header block (two-tone card) ---
+  const headerH = 400;
+  const headerGrad = ctx.createLinearGradient(0, 0, W, headerH);
+  headerGrad.addColorStop(0, accent);
+  headerGrad.addColorStop(1, accentDark);
+  ctx.fillStyle = headerGrad;
+  ctx.fillRect(0, 0, W, headerH);
 
   const pad = 90;
-  let y = 120;
+  let y = 110;
 
-  // Eyebrow / brand
-  ctx.fillStyle = FAINT;
-  ctx.font = `600 24px ${FONT}`;
   ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `600 24px ${FONT}`;
   ctx.letterSpacing = '3px';
   ctx.fillText('ISL VISA QUEUE', W / 2, y);
   ctx.letterSpacing = '0px';
 
-  y += 70;
-  // Name (wraps if long)
-  ctx.fillStyle = INK;
+  y += 74;
+  ctx.fillStyle = '#FFFFFF';
   ctx.font = `700 60px ${FONT}`;
   const nameLines = wrapText(ctx, person.fullName, W - pad * 2);
   nameLines.forEach(line => {
@@ -743,23 +766,25 @@ function downloadResultImage(person, ahead, breakdown){
     y += 68;
   });
 
-  y += 6;
-  ctx.fillStyle = SUB;
+  y += 4;
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.font = `400 28px ${FONT}`;
   ctx.fillText(`Joined ${person.joinDate} at ${person.joinTime}`, W / 2, y);
 
-  y += 58;
-  // Status pill -- outline only, accent-colored text
+  // Status pill -- solid white fill, accent text, sits straddling header/body edge
+  y = headerH;
   const pillLabel = stageLabel(person.stage).toUpperCase();
-  ctx.font = `600 24px ${FONT}`;
+  ctx.font = `700 24px ${FONT}`;
   ctx.letterSpacing = '1px';
   const pillTextW = ctx.measureText(pillLabel).width;
-  const pillW = pillTextW + 56;
-  const pillH = 52;
+  const pillW = pillTextW + 64;
+  const pillH = 60;
   const pillX = (W - pillW) / 2;
   const pillY = y - pillH / 2;
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 2;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.shadowColor = 'rgba(17,24,39,0.18)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 4;
   ctx.beginPath();
   ctx.moveTo(pillX + pillH/2, pillY);
   ctx.lineTo(pillX + pillW - pillH/2, pillY);
@@ -767,21 +792,25 @@ function downloadResultImage(person, ahead, breakdown){
   ctx.lineTo(pillX + pillH/2, pillY + pillH);
   ctx.arc(pillX + pillH/2, pillY + pillH/2, pillH/2, Math.PI/2, -Math.PI/2);
   ctx.closePath();
-  ctx.stroke();
-  ctx.fillStyle = accent;
-  ctx.fillText(pillLabel, W / 2, y + 8);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = accentDark;
+  ctx.fillText(pillLabel, W / 2, y + 9);
   ctx.letterSpacing = '0px';
 
-  y += 90;
-  ctx.strokeStyle = LINE;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(pad, y);
-  ctx.lineTo(W - pad, y);
-  ctx.stroke();
+  y = headerH + 110;
 
-  y += 130;
-  // Headline number
+  // Soft tinted glow behind the headline number
+  const glowR = 260;
+  const glow = ctx.createRadialGradient(W/2, y + 20, 20, W/2, y + 20, glowR);
+  glow.addColorStop(0, hexToRgba(accent, 0.14));
+  glow.addColorStop(1, hexToRgba(accent, 0));
+  ctx.fillStyle = glow;
+  ctx.fillRect(W/2 - glowR, y + 20 - glowR, glowR * 2, glowR * 2);
+
+  y += 140;
   ctx.fillStyle = accent;
   ctx.font = `800 200px ${FONT}`;
   ctx.fillText(String(ahead.length), W / 2, y);
@@ -791,14 +820,15 @@ function downloadResultImage(person, ahead, breakdown){
   ctx.font = `400 30px ${FONT}`;
   ctx.fillText('people ahead of you, still waiting', W / 2, y);
 
-  y += 70;
+  y += 60;
   ctx.strokeStyle = LINE;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(pad, y);
   ctx.lineTo(W - pad, y);
   ctx.stroke();
 
-  y += 60;
+  y += 50;
   if (breakdown.length){
     ctx.textAlign = 'left';
     ctx.fillStyle = FAINT;
@@ -807,34 +837,32 @@ function downloadResultImage(person, ahead, breakdown){
     ctx.fillText('BREAKDOWN BY JOIN MONTH', pad, y);
     ctx.letterSpacing = '0px';
 
-    y += 46;
+    y += 34;
     const maxRows = Math.min(breakdown.length, 6);
+    const rowH = 58;
     for (let i = 0; i < maxRows; i++){
       const [key, count] = breakdown[i];
+      // Alternating tinted row background for contrast
+      if (i % 2 === 0){
+        ctx.fillStyle = hexToRgba(accent, 0.06);
+        ctx.fillRect(pad - 20, y, W - pad * 2 + 40, rowH);
+      }
       ctx.fillStyle = INK;
       ctx.font = `400 30px ${FONT}`;
       ctx.textAlign = 'left';
-      ctx.fillText(calendarMonthLabel(key), pad, y);
-      ctx.fillStyle = accent;
+      ctx.fillText(calendarMonthLabel(key), pad, y + rowH/2 + 10);
+      ctx.fillStyle = accentDark;
       ctx.font = `700 30px ${FONT}`;
       ctx.textAlign = 'right';
-      ctx.fillText(String(count), W - pad, y);
-
-      if (i < maxRows - 1){
-        ctx.strokeStyle = LINE;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(pad, y + 22);
-        ctx.lineTo(W - pad, y + 22);
-        ctx.stroke();
-      }
-      y += 54;
+      ctx.fillText(String(count), W - pad, y + rowH/2 + 10);
+      y += rowH;
     }
     if (breakdown.length > maxRows){
       ctx.fillStyle = FAINT;
       ctx.font = `400 24px ${FONT}`;
       ctx.textAlign = 'center';
-      ctx.fillText(`+ ${breakdown.length - maxRows} more month${breakdown.length - maxRows > 1 ? 's' : ''}`, W / 2, y + 10);
+      ctx.fillText(`+ ${breakdown.length - maxRows} more month${breakdown.length - maxRows > 1 ? 's' : ''}`, W / 2, y + 34);
+      y += 40;
     }
   }
 
@@ -857,7 +885,6 @@ function downloadResultImage(person, ahead, breakdown){
     URL.revokeObjectURL(url);
   }, 'image/png');
 }
-
 function runLookup(){
   const name = document.getElementById('lookupInput').value;
   const candidates = findCandidates(name);
