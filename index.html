@@ -599,6 +599,13 @@
         <button type="button" class="pill-tab" data-value="pending">Still pending</button>
         <button type="button" class="pill-tab" data-value="done">Done</button>
       </div>
+      <div style="flex:1;"></div>
+      <button class="share-btn" id="exportCurrentPdfBtn" title="Export the dates currently shown above">
+        <span class="btn-label">Export view (PDF)</span>
+      </button>
+      <button class="share-btn" id="exportAllPdfBtn" title="Export every date, ignoring the active filter">
+        <span class="btn-label">Export full report (PDF)</span>
+      </button>
     </div>
     <div class="table-wrap glass">
       <table id="dateReportTable" style="display:none;">
@@ -619,6 +626,8 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 const API_BASE = "/api";
 const START_MONTH = "2025-12";
@@ -781,7 +790,7 @@ function renderTable(){
 }
 
 /* ---------- Report by Join Date ---------- */
-function renderDateReport(){
+function getDateGroups(){
   const groups = {};
   allData.forEach(r => {
     const d = r.joinDate || 'Unknown';
@@ -789,11 +798,22 @@ function renderDateReport(){
     groups[d].total++;
     if (r.stage === 'waiting') groups[d].waiting++;
   });
-
+  return groups;
+}
+function filterDatesByStatus(groups, filter){
   let dates = Object.keys(groups).sort();
+  if (filter === 'pending') dates = dates.filter(d => groups[d].waiting > 0);
+  else if (filter === 'done') dates = dates.filter(d => groups[d].waiting === 0);
+  return dates;
+}
+function dateReportFilterLabel(filter){
+  const map = { all: 'All dates', pending: 'Still pending', done: 'Done' };
+  return map[filter] || 'All dates';
+}
 
-  if (dateReportFilter === 'pending') dates = dates.filter(d => groups[d].waiting > 0);
-  else if (dateReportFilter === 'done') dates = dates.filter(d => groups[d].waiting === 0);
+function renderDateReport(){
+  const groups = getDateGroups();
+  const dates = filterDatesByStatus(groups, dateReportFilter);
 
   const tbody = document.getElementById('dateReportBody');
   tbody.innerHTML = '';
@@ -835,6 +855,105 @@ document.querySelectorAll('#dateReportTabs .pill-tab').forEach(btn => {
     renderDateReport();
   });
 });
+
+/* ---------- Date report: PDF export ---------- */
+function exportDateReportPDF(scope){
+  if (!window.jspdf || !window.jspdf.jsPDF){
+    alert('PDF library did not load. Check your internet connection and try again.');
+    return;
+  }
+  const groups = getDateGroups();
+  const filterForScope = scope === 'current' ? dateReportFilter : 'all';
+  const dates = filterDatesByStatus(groups, filterForScope);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  const ACCENT = [59, 130, 246];
+  const ACCENT_DARK = [37, 99, 235];
+  const DONE_GREEN = [22, 163, 74];
+  const WAITING_GREY = [100, 116, 139];
+  const TEXT_DIM = [100, 116, 139];
+
+  // Header band
+  doc.setFillColor(...ACCENT);
+  doc.rect(0, 0, pageWidth, 86, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('ISL Visa Queue', 40, 36);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text('Report by Join Date', 40, 58);
+
+  const generatedStr = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  doc.setFontSize(9);
+  doc.text(`Scope: ${dateReportFilterLabel(filterForScope)}`, pageWidth - 40, 36, { align: 'right' });
+  doc.text(`Generated: ${generatedStr}`, pageWidth - 40, 50, { align: 'right' });
+
+  const rows = dates.map(d => {
+    const g = groups[d];
+    const done = g.waiting === 0;
+    return [d, String(g.total), String(g.waiting), done ? 'Done' : `${g.waiting} left`];
+  });
+
+  doc.autoTable({
+    startY: 110,
+    margin: { left: 40, right: 40 },
+    head: [['Join Date', 'Total Joined', 'Still Waiting', 'Status']],
+    body: rows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: ACCENT_DARK,
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 10
+    },
+    styles: {
+      fontSize: 9.5,
+      cellPadding: 7,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
+      textColor: [30, 41, 59]
+    },
+    alternateRowStyles: { fillColor: [240, 245, 253] },
+    columnStyles: {
+      0: { cellWidth: 130 },
+      1: { halign: 'center' },
+      2: { halign: 'center' },
+      3: { halign: 'center', fontStyle: 'bold' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 3){
+        const isDone = data.cell.raw === 'Done';
+        data.cell.styles.textColor = isDone ? DONE_GREEN : WAITING_GREY;
+      }
+    },
+    didDrawPage: () => {
+      const pageCount = doc.internal.getNumberOfPages();
+      const current = doc.internal.getCurrentPageInfo().pageNumber;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...TEXT_DIM);
+      doc.text('ISL Visa Queue Tracker · Built by Muntazir Mahdi', 40, pageHeight - 25);
+      doc.text(`Page ${current} of ${pageCount}`, pageWidth - 40, pageHeight - 25, { align: 'right' });
+    }
+  });
+
+  if (rows.length === 0){
+    doc.setFontSize(11);
+    doc.setTextColor(...TEXT_DIM);
+    doc.text('No dates match this scope.', 40, 130);
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  doc.save(`isl-date-report-${filterForScope}-${stamp}.pdf`);
+}
+
+document.getElementById('exportCurrentPdfBtn').addEventListener('click', () => exportDateReportPDF('current'));
+document.getElementById('exportAllPdfBtn').addEventListener('click', () => exportDateReportPDF('all'));
 
 /* ---------- Stage pill tabs (drive the hidden #stageFilter select) ---------- */
 document.querySelectorAll('#stageTabs .pill-tab').forEach(btn => {
