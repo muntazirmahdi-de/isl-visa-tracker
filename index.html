@@ -132,6 +132,21 @@
   }
   .updated-line span{ color: var(--text); }
 
+  .top-banner{
+    background: rgba(245,158,11,0.14);
+    border: 1px solid rgba(245,158,11,0.4);
+    color: var(--c-correction);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    margin-bottom: 18px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .top-banner strong{ font-weight:700; }
+  .top-banner a{ color: inherit; text-decoration: underline; cursor: pointer; }
+
   /* ---------- Hero ---------- */
   .hero{
     display:grid; grid-template-columns: 1.5fr 1fr; gap: 18px;
@@ -498,6 +513,7 @@
     </div>
   </nav>
   <div class="updated-line">Last updated <span id="lastUpdated">—</span></div>
+  <div id="topBanner" class="top-banner" style="display:none;"></div>
 
   <section class="hero">
     <div class="hero-main glass">
@@ -682,37 +698,51 @@ async function fetchMonths(){
   return json.months.map(m => m.value).filter(v => v >= START_MONTH).sort();
 }
 
-async function fetchMonthData(month){
-  let page = 1, totalPages = 1;
-  const rows = [];
-  let actualLabel = month;
+async function fetchMonthData(month, retries = 2){
+  let lastErr;
 
-  do {
-    const res = await fetch(`${API_BASE}/proxy?month=${month}&page=${page}&pageSize=100`);
-    if (!res.ok) {
-      let detail = '';
-      try {
-        const errJson = await res.json();
-        detail = errJson.error ? ` — ${errJson.error}` : '';
-      } catch (e) { /* body wasn't JSON, ignore */ }
-      throw new Error(`proxy endpoint returned ${res.status} for ${month}${detail}`);
+  for (let attempt = 0; attempt <= retries; attempt++){
+    try {
+      let page = 1, totalPages = 1;
+      const rows = [];
+      let actualLabel = month;
+
+      do {
+        const res = await fetch(`${API_BASE}/proxy?month=${month}&page=${page}&pageSize=100`);
+        if (!res.ok) {
+          let detail = '';
+          try {
+            const errJson = await res.json();
+            detail = errJson.error ? ` — ${errJson.error}` : '';
+          } catch (e) { /* body wasn't JSON, ignore */ }
+          throw new Error(`proxy endpoint returned ${res.status} for ${month}${detail}`);
+        }
+        const json = await res.json();
+        totalPages = json.totalPages || 1;
+        actualLabel = json.sheet || json.month || month;
+        (json.data || []).forEach(item => {
+          rows.push({
+            fullName: item.fullName || "Unnamed",
+            joinDate: item.joinDate || "",
+            joinTime: item.joinTime || "",
+            stage: deriveStage(item),
+            month: actualLabel
+          });
+        });
+        page++;
+      } while (page <= totalPages);
+
+      return rows; // success — stop retrying
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        console.warn(`${month} attempt ${attempt + 1} failed (${err.message}), retrying…`);
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); // small backoff before retry
+      }
     }
-    const json = await res.json();
-    totalPages = json.totalPages || 1;
-    actualLabel = json.sheet || json.month || month;
-    (json.data || []).forEach(item => {
-      rows.push({
-        fullName: item.fullName || "Unnamed",
-        joinDate: item.joinDate || "",
-        joinTime: item.joinTime || "",
-        stage: deriveStage(item),
-        month: actualLabel
-      });
-    });
-    page++;
-  } while (page <= totalPages);
+  }
 
-  return rows;
+  throw lastErr; // all attempts failed
 }
 
 /* ---------- Stats / table ---------- */
@@ -1672,16 +1702,28 @@ async function loadData(){
     document.getElementById('lastUpdated').textContent =
       new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
+    const topBanner = document.getElementById('topBanner');
+
     if (failedMonths.length > 0 && allData.length > 0) {
       stateMsg.classList.add('error');
       stateMsg.style.display = 'block';
       stateMsg.textContent =
         `Showing partial data. Failed to load: ${failedMonths.map(f => f.month).join(', ')}. ` +
         `Check console for details.`;
+
+      topBanner.style.display = 'flex';
+      topBanner.innerHTML =
+        `⚠️ <span><strong>Some data failed to load</strong> even after retrying (${failedMonths.map(f => f.month).join(', ')}) — numbers below may be incomplete. <a id="bannerRetryLink">Retry now</a></span>`;
+      document.getElementById('bannerRetryLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        loadData();
+      });
     } else if (failedMonths.length > 0 && allData.length === 0) {
       throw new Error(failedMonths.map(f => `${f.month}: ${f.reason}`).join(' | '));
     } else {
       stateMsg.classList.remove('error');
+      topBanner.style.display = 'none';
+      topBanner.innerHTML = '';
       if (allData.length === 0) {
         stateMsg.style.display = 'block';
         stateMsg.textContent = 'No applicants found.';
