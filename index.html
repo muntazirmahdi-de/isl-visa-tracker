@@ -458,6 +458,14 @@
 
   ::selection{ background: rgba(var(--accent-rgb),0.35); color: #fff; }
 
+  /* ---------- Date report section ---------- */
+  .date-report{ margin-top: 34px; }
+  .progress-mini{
+    width: 90px; height: 6px; border-radius: 999px;
+    background: rgba(255,255,255,0.08); overflow:hidden; display:inline-block; vertical-align:middle;
+  }
+  .progress-mini .fill{ height:100%; background: var(--c-appointed); border-radius: 999px; }
+
   @media (max-width: 640px){
     body{ padding: 14px 12px 50px; }
     .topbar{ top:6px; }
@@ -580,6 +588,31 @@
     </div>
   </section>
 
+  <section class="date-report">
+    <div class="browse-head">
+      <h2>Report by Join Date</h2>
+      <span class="count-pill" id="dateReportCountPill"></span>
+    </div>
+    <div class="toolbar glass">
+      <div class="pill-tabs" id="dateReportTabs">
+        <button type="button" class="pill-tab active" data-value="all">All dates</button>
+        <button type="button" class="pill-tab" data-value="pending">Still pending</button>
+        <button type="button" class="pill-tab" data-value="done">Done</button>
+      </div>
+    </div>
+    <div class="table-wrap glass">
+      <table id="dateReportTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>Join Date</th><th>Total Joined</th><th>Still Waiting</th><th>Progress</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="dateReportBody"></tbody>
+      </table>
+      <div class="state-msg" id="dateReportStateMsg">Loading…</div>
+    </div>
+  </section>
+
   <footer>
     Built by Muntazir Mahdi &middot; <a href="mailto:muntazirmahdi.de@gmail.com">muntazirmahdi.de@gmail.com</a>
   </footer>
@@ -592,6 +625,7 @@ const START_MONTH = "2025-12";
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 let allData = [];
+let dateReportFilter = 'all';
 
 /* ---------- Theme ---------- */
 function initTheme(){
@@ -746,10 +780,66 @@ function renderTable(){
   else { stateMsg.style.display = 'none'; }
 }
 
-/* ---------- Stage pill tabs (drive the hidden #stageFilter select) ---------- */
-document.querySelectorAll('.pill-tab').forEach(btn => {
+/* ---------- Report by Join Date ---------- */
+function renderDateReport(){
+  const groups = {};
+  allData.forEach(r => {
+    const d = r.joinDate || 'Unknown';
+    if (!groups[d]) groups[d] = { total: 0, waiting: 0 };
+    groups[d].total++;
+    if (r.stage === 'waiting') groups[d].waiting++;
+  });
+
+  let dates = Object.keys(groups).sort();
+
+  if (dateReportFilter === 'pending') dates = dates.filter(d => groups[d].waiting > 0);
+  else if (dateReportFilter === 'done') dates = dates.filter(d => groups[d].waiting === 0);
+
+  const tbody = document.getElementById('dateReportBody');
+  tbody.innerHTML = '';
+
+  dates.forEach(d => {
+    const g = groups[d];
+    const done = g.waiting === 0;
+    const cleared = g.total - g.waiting;
+    const pct = g.total ? Math.round((cleared / g.total) * 100) : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${d}</td>
+      <td class="mono">${g.total}</td>
+      <td class="mono">${g.waiting}</td>
+      <td>
+        <span class="progress-mini"><span class="fill" style="width:${pct}%"></span></span>
+        <span class="mono" style="margin-left:8px;">${pct}%</span>
+      </td>
+      <td><span class="stamp ${done ? 'appointed' : 'waiting'}">${done ? 'Done' : `${g.waiting} left`}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const totalDates = Object.keys(groups).length;
+  document.getElementById('dateReportCountPill').textContent = `Showing ${dates.length} of ${totalDates} dates`;
+  document.getElementById('dateReportTable').style.display = dates.length ? 'table' : 'none';
+
+  const stateMsg = document.getElementById('dateReportStateMsg');
+  if (totalDates === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No applicant data yet.'; }
+  else if (dates.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No dates match this filter.'; }
+  else { stateMsg.style.display = 'none'; }
+}
+
+document.querySelectorAll('#dateReportTabs .pill-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.pill-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#dateReportTabs .pill-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    dateReportFilter = btn.dataset.value;
+    renderDateReport();
+  });
+});
+
+/* ---------- Stage pill tabs (drive the hidden #stageFilter select) ---------- */
+document.querySelectorAll('#stageTabs .pill-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#stageTabs .pill-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('stageFilter').value = btn.dataset.value;
     renderTable();
@@ -1457,6 +1547,7 @@ async function loadData(){
 
     updateStats(allData);
     renderTable();
+    renderDateReport();
     renderFavoritesPanel();
 
     document.getElementById('lastUpdated').textContent =
