@@ -1,5 +1,8 @@
 {
   "name": "isl-visa-tracker",
-  "version": "1.0.0",
-  "private": true
+  "version": "2.0.0",
+  "private": true,
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
 }
