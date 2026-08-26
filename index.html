@@ -481,6 +481,21 @@
   }
   .progress-mini .fill{ height:100%; background: var(--c-appointed); border-radius: 999px; }
 
+  /* ---------- Monthly progress section ---------- */
+  .monthly-progress{ margin-top: 34px; }
+  .month-progress-list{ display:flex; flex-direction:column; gap: 18px; padding: 22px; }
+  .month-progress-row{}
+  .month-progress-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 8px; flex-wrap:wrap; gap:4px; }
+  .month-progress-name{ font-weight:700; font-size: 14px; }
+  .month-progress-counts{ font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
+  .month-progress-bar{
+    display:flex; height: 14px; border-radius: 999px; overflow:hidden;
+    background: rgba(255,255,255,0.08);
+  }
+  .month-progress-bar .mp-done{ background: var(--c-appointed); height:100%; transition: width .5s ease; }
+  .month-progress-bar .mp-pending{ background: var(--c-waiting); height:100%; transition: width .5s ease; }
+  .month-progress-pct{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 5px; }
+
   @media (max-width: 640px){
     body{ padding: 14px 12px 50px; }
     .topbar{ top:6px; }
@@ -604,6 +619,17 @@
     </div>
   </section>
 
+  <section class="monthly-progress">
+    <div class="browse-head">
+      <h2>Monthly Progress</h2>
+      <span class="count-pill" id="monthlyProgressCountPill"></span>
+    </div>
+    <div class="table-wrap glass">
+      <div class="month-progress-list" id="monthlyProgressList"></div>
+      <div class="state-msg" id="monthlyProgressStateMsg">Loading…</div>
+    </div>
+  </section>
+
   <section class="date-report">
     <div class="browse-head">
       <h2>Report by Join Date</h2>
@@ -651,6 +677,14 @@ const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 let allData = [];
 let dateReportFilter = 'all';
+let isLoadingData = false;
+
+/* ---------- Security: escape untrusted strings before innerHTML use ---------- */
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
 
 /* ---------- Theme ---------- */
 function initTheme(){
@@ -668,6 +702,16 @@ document.getElementById('themeToggle').addEventListener('click', () => {
   setTheme(current === 'light' ? 'dark' : 'light');
 });
 initTheme();
+
+// Keep the icon in sync if the OS-level color scheme changes mid-session
+// (only when the user hasn't explicitly chosen a theme via the toggle).
+try {
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+    let saved = null;
+    try { saved = localStorage.getItem('theme'); } catch(err){ /* ignore */ }
+    if (!saved) setTheme(e.matches ? 'light' : 'dark');
+  });
+} catch(e) { /* matchMedia listener unsupported, ignore */ }
 
 /* ---------- Helpers ---------- */
 function stageLabel(stage){
@@ -801,11 +845,11 @@ function renderTable(){
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="mono">${i + 1}</td>
-        <td>${r.fullName}</td>
-        <td class="mono">${r.joinDate}</td>
-        <td class="mono">${r.joinTime}</td>
+        <td>${escapeHtml(r.fullName)}</td>
+        <td class="mono">${escapeHtml(r.joinDate)}</td>
+        <td class="mono">${escapeHtml(r.joinTime)}</td>
         <td><span class="stamp ${r.stage}">${stageLabel(r.stage)}</span></td>
-        <td class="mono">${r.month}</td>
+        <td class="mono">${escapeHtml(r.month)}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -816,6 +860,51 @@ function renderTable(){
   const stateMsg = document.getElementById('stateMsg');
   if (allData.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No applicants found.'; }
   else if (filtered.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No results match your filters.'; }
+  else { stateMsg.style.display = 'none'; }
+}
+
+/* ---------- Monthly Progress (done vs pending, per join month) ---------- */
+function getMonthlyProgress(){
+  const groups = {};
+  allData.forEach(r => {
+    const key = r.month || 'Unknown';
+    if (!groups[key]) groups[key] = { total: 0, waiting: 0 };
+    groups[key].total++;
+    if (r.stage === 'waiting') groups[key].waiting++;
+  });
+  return groups;
+}
+
+function renderMonthlyProgress(){
+  const groups = getMonthlyProgress();
+  const months = Object.keys(groups).sort();
+
+  const list = document.getElementById('monthlyProgressList');
+  list.innerHTML = months.map(m => {
+    const g = groups[m];
+    const done = g.total - g.waiting;
+    const donePct = g.total ? Math.round((done / g.total) * 100) : 0;
+    const pendingPct = 100 - donePct;
+    return `
+      <div class="month-progress-row">
+        <div class="month-progress-head">
+          <span class="month-progress-name">${escapeHtml(m)}</span>
+          <span class="month-progress-counts">${done} done &middot; ${g.waiting} pending / ${g.total} total</span>
+        </div>
+        <div class="month-progress-bar">
+          <div class="mp-done" style="width:${donePct}%"></div>
+          <div class="mp-pending" style="width:${pendingPct}%"></div>
+        </div>
+        <div class="month-progress-pct">${donePct}% done</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('monthlyProgressCountPill').textContent = `${months.length} month${months.length === 1 ? '' : 's'}`;
+  list.style.display = months.length ? 'flex' : 'none';
+
+  const stateMsg = document.getElementById('monthlyProgressStateMsg');
+  if (months.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No applicant data yet.'; }
   else { stateMsg.style.display = 'none'; }
 }
 
@@ -855,7 +944,7 @@ function renderDateReport(){
     const pct = g.total ? Math.round((cleared / g.total) * 100) : 0;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="mono">${d}</td>
+      <td class="mono">${escapeHtml(d)}</td>
       <td class="mono">${g.total}</td>
       <td class="mono">${g.waiting}</td>
       <td>
@@ -1026,7 +1115,9 @@ const STAGE_EMOJI = {
 const FAVORITES_KEY = 'isl_favorites';
 const MAX_FAVORITES = 20;
 
-function personKey(person){ return `${person.fullName}|${person.joinDate}|${person.joinTime}`; }
+// Includes stage in the key (in addition to name/date/time) to reduce the
+// already-rare chance of two different rows colliding to the same favorite.
+function personKey(person){ return `${person.fullName}|${person.joinDate}|${person.joinTime}|${person.stage}`; }
 
 function getFavorites(){
   try {
@@ -1068,20 +1159,20 @@ function renderFavoritesPanel(){
       return `
         <div class="fav-item">
           <div class="fav-item-main">
-            <span class="fav-name">${f.fullName}</span>
+            <span class="fav-name">${escapeHtml(f.fullName)}</span>
             <span class="fav-sub">not found</span>
           </div>
-          <button class="fav-remove" data-key="${f.key}" title="Remove">✕</button>
+          <button class="fav-remove" data-key="${escapeHtml(f.key)}" title="Remove">✕</button>
         </div>`;
     }
     const ahead = peopleAhead(person);
     return `
       <div class="fav-item">
-        <div class="fav-item-main" data-key="${f.key}">
-          <span class="fav-name">${person.fullName}</span>
+        <div class="fav-item-main" data-key="${escapeHtml(f.key)}">
+          <span class="fav-name">${escapeHtml(person.fullName)}</span>
           <span class="fav-sub">${ahead.length} ahead</span>
         </div>
-        <button class="fav-remove" data-key="${f.key}" title="Remove">✕</button>
+        <button class="fav-remove" data-key="${escapeHtml(f.key)}" title="Remove">✕</button>
       </div>`;
   }).join('');
 
@@ -1137,8 +1228,8 @@ function renderCandidateList(candidates){
   const items = sorted.map((c, i) => `
     <div class="candidate-item" data-index="${i}">
       <div>
-        <div class="candidate-name">${c.fullName}</div>
-        <div class="candidate-meta">${c.joinDate} · ${c.joinTime} · ${c.month}</div>
+        <div class="candidate-name">${escapeHtml(c.fullName)}</div>
+        <div class="candidate-meta">${escapeHtml(c.joinDate)} · ${escapeHtml(c.joinTime)} · ${escapeHtml(c.month)}</div>
       </div>
       <span class="stamp ${c.stage}">${stageLabel(c.stage)}</span>
     </div>
@@ -1177,8 +1268,8 @@ function renderPositionResult(person){
     <div class="position-result">
       <div class="position-num">${ahead.length}</div>
       <div class="position-detail">
-        <div class="name">${person.fullName}</div>
-        <div class="meta">Joined ${person.joinDate} at ${person.joinTime} &middot; currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span></div>
+        <div class="name">${escapeHtml(person.fullName)}</div>
+        <div class="meta">Joined ${escapeHtml(person.joinDate)} at ${escapeHtml(person.joinTime)} &middot; currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span></div>
         <div class="meta">
           ${ahead.length === 0 ? "No one still waiting is ahead of this person." : `${ahead.length} ${ahead.length === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
         </div>
@@ -1640,9 +1731,9 @@ function renderAutocomplete(query){
   if (matches.length === 0){ closeAutocomplete(); return; }
 
   list.innerHTML = matches.map(m => `
-    <div class="ac-item" data-key="${personKey(m)}">
-      <span class="ac-name">${m.fullName}</span>
-      <span class="ac-meta">${m.joinDate} · <span class="stamp ${m.stage}" style="padding:1px 6px;">${stageLabel(m.stage)}</span></span>
+    <div class="ac-item" data-key="${escapeHtml(personKey(m))}">
+      <span class="ac-name">${escapeHtml(m.fullName)}</span>
+      <span class="ac-meta">${escapeHtml(m.joinDate)} · <span class="stamp ${m.stage}" style="padding:1px 6px;">${stageLabel(m.stage)}</span></span>
     </div>
   `).join('');
   list.classList.add('open');
@@ -1662,6 +1753,11 @@ document.addEventListener('click', (e) => {
 
 /* ---------- Load / refresh ---------- */
 async function loadData(){
+  // Guard against overlapping loads (manual refresh click firing while the
+  // 5-minute auto-refresh timer is already mid-flight, or a double click).
+  if (isLoadingData) return;
+  isLoadingData = true;
+
   const stateMsg = document.getElementById('stateMsg');
   const refreshBtn = document.getElementById('refreshBtn');
   const refreshLabel = refreshBtn.querySelector('.btn-label');
@@ -1696,6 +1792,7 @@ async function loadData(){
 
     updateStats(allData);
     renderTable();
+    renderMonthlyProgress();
     renderDateReport();
     renderFavoritesPanel();
 
@@ -1713,7 +1810,7 @@ async function loadData(){
 
       topBanner.style.display = 'flex';
       topBanner.innerHTML =
-        `⚠️ <span><strong>Some data failed to load</strong> even after retrying (${failedMonths.map(f => f.month).join(', ')}) — numbers below may be incomplete. <a id="bannerRetryLink">Retry now</a></span>`;
+        `⚠️ <span><strong>Some data failed to load</strong> even after retrying (${escapeHtml(failedMonths.map(f => f.month).join(', '))}) — numbers below may be incomplete. <a id="bannerRetryLink">Retry now</a></span>`;
       document.getElementById('bannerRetryLink').addEventListener('click', (e) => {
         e.preventDefault();
         loadData();
@@ -1740,6 +1837,7 @@ async function loadData(){
   } finally {
     refreshBtn.disabled = false;
     refreshLabel.textContent = 'Refresh';
+    isLoadingData = false;
   }
 }
 
