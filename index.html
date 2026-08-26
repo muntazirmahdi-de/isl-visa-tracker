@@ -481,20 +481,50 @@
   }
   .progress-mini .fill{ height:100%; background: var(--c-appointed); border-radius: 999px; }
 
-  /* ---------- Monthly progress section ---------- */
-  .monthly-progress{ margin-top: 34px; }
-  .month-progress-list{ display:flex; flex-direction:column; gap: 18px; padding: 22px; }
-  .month-progress-row{}
-  .month-progress-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 8px; flex-wrap:wrap; gap:4px; }
-  .month-progress-name{ font-weight:700; font-size: 14px; }
-  .month-progress-counts{ font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
-  .month-progress-bar{
-    display:flex; height: 14px; border-radius: 999px; overflow:hidden;
-    background: rgba(255,255,255,0.08);
+  /* ---------- Monthly progress section (ring cards) ---------- */
+  .monthly-progress{ margin-bottom: 34px; }
+  .month-progress-panel{ border-radius: 18px; padding: 22px; }
+  .month-progress-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
   }
-  .month-progress-bar .mp-done{ background: var(--c-appointed); height:100%; transition: width .5s ease; }
-  .month-progress-bar .mp-pending{ background: var(--c-waiting); height:100%; transition: width .5s ease; }
-  .month-progress-pct{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 5px; }
+  .month-card{
+    background: var(--glass-strong);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    transition: transform .15s ease, border-color .2s ease;
+  }
+  .month-card:hover{ transform: translateY(-3px); border-color: var(--accent); }
+  .month-card-head{ width: 100%; }
+  .month-card-name{
+    display: block; font-weight: 700; font-size: 13.5px; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .month-card-total{ font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+  .month-ring-wrap{ position: relative; width: 116px; height: 116px; }
+  .month-ring{ width: 116px; height: 116px; transform: rotate(-90deg); }
+  .ring-track{ fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 10; }
+  .ring-fill{
+    fill: none; stroke: var(--c-appointed); stroke-width: 10; stroke-linecap: round;
+    transition: stroke-dashoffset .7s ease;
+  }
+  .month-ring-label{
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-pct{ font-weight: 800; font-size: 22px; line-height: 1; }
+  .ring-sub{ font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .month-card-stats{ display: flex; flex-direction: column; gap: 7px; width: 100%; }
+  .month-stat{ display: flex; align-items: center; gap: 7px; font-size: 12.5px; }
+  .month-stat .dot{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .month-stat .stat-num{ margin-left: auto; font-family: var(--mono); font-weight: 700; }
 
   @media (max-width: 640px){
     body{ padding: 14px 12px 50px; }
@@ -575,6 +605,17 @@
     </aside>
   </section>
 
+  <section class="monthly-progress">
+    <div class="browse-head">
+      <h2>Monthly Progress</h2>
+      <span class="count-pill" id="monthlyProgressCountPill"></span>
+    </div>
+    <div class="month-progress-panel glass">
+      <div class="month-progress-grid" id="monthlyProgressGrid"></div>
+      <div class="state-msg" id="monthlyProgressStateMsg">Loading…</div>
+    </div>
+  </section>
+
   <section class="browse">
     <div class="browse-head">
       <h2>All Applicants</h2>
@@ -616,17 +657,6 @@
         <tbody id="tableBody"></tbody>
       </table>
       <div class="state-msg" id="stateMsg">Loading applicant data…</div>
-    </div>
-  </section>
-
-  <section class="monthly-progress">
-    <div class="browse-head">
-      <h2>Monthly Progress</h2>
-      <span class="count-pill" id="monthlyProgressCountPill"></span>
-    </div>
-    <div class="table-wrap glass">
-      <div class="month-progress-list" id="monthlyProgressList"></div>
-      <div class="state-msg" id="monthlyProgressStateMsg">Loading…</div>
     </div>
   </section>
 
@@ -875,33 +905,46 @@ function getMonthlyProgress(){
   return groups;
 }
 
+const MONTH_RING_RADIUS = 50;
+const MONTH_RING_CIRCUMFERENCE = 2 * Math.PI * MONTH_RING_RADIUS;
+
 function renderMonthlyProgress(){
   const groups = getMonthlyProgress();
   const months = Object.keys(groups).sort();
 
-  const list = document.getElementById('monthlyProgressList');
-  list.innerHTML = months.map(m => {
+  const grid = document.getElementById('monthlyProgressGrid');
+  grid.innerHTML = months.map(m => {
     const g = groups[m];
     const done = g.total - g.waiting;
     const donePct = g.total ? Math.round((done / g.total) * 100) : 0;
-    const pendingPct = 100 - donePct;
+    const offset = MONTH_RING_CIRCUMFERENCE * (1 - donePct / 100);
     return `
-      <div class="month-progress-row">
-        <div class="month-progress-head">
-          <span class="month-progress-name">${escapeHtml(m)}</span>
-          <span class="month-progress-counts">${done} done &middot; ${g.waiting} pending / ${g.total} total</span>
+      <div class="month-card">
+        <div class="month-card-head">
+          <span class="month-card-name" title="${escapeHtml(m)}">${escapeHtml(m)}</span>
+          <span class="month-card-total">${g.total} total</span>
         </div>
-        <div class="month-progress-bar">
-          <div class="mp-done" style="width:${donePct}%"></div>
-          <div class="mp-pending" style="width:${pendingPct}%"></div>
+        <div class="month-ring-wrap">
+          <svg class="month-ring" viewBox="0 0 120 120">
+            <circle class="ring-track" cx="60" cy="60" r="${MONTH_RING_RADIUS}"></circle>
+            <circle class="ring-fill" cx="60" cy="60" r="${MONTH_RING_RADIUS}"
+              style="stroke-dasharray:${MONTH_RING_CIRCUMFERENCE};stroke-dashoffset:${offset};"></circle>
+          </svg>
+          <div class="month-ring-label">
+            <span class="ring-pct">${donePct}%</span>
+            <span class="ring-sub">Done</span>
+          </div>
         </div>
-        <div class="month-progress-pct">${donePct}% done</div>
+        <div class="month-card-stats">
+          <div class="month-stat"><span class="dot appointed"></span>Done<span class="stat-num">${done}</span></div>
+          <div class="month-stat"><span class="dot waiting"></span>Pending<span class="stat-num">${g.waiting}</span></div>
+        </div>
       </div>
     `;
   }).join('');
 
   document.getElementById('monthlyProgressCountPill').textContent = `${months.length} month${months.length === 1 ? '' : 's'}`;
-  list.style.display = months.length ? 'flex' : 'none';
+  grid.style.display = months.length ? 'grid' : 'none';
 
   const stateMsg = document.getElementById('monthlyProgressStateMsg');
   if (months.length === 0){ stateMsg.style.display = 'block'; stateMsg.textContent = 'No applicant data yet.'; }
