@@ -340,6 +340,21 @@
   .breakdown-row:last-child{ border-bottom:none; }
   .breakdown-row .bd-count{ font-family: var(--mono); color: var(--accent-2); font-weight: 700; }
 
+  .wait-estimate{
+    margin-top: 14px;
+    background: rgba(var(--accent-rgb),0.08);
+    border: 1px solid rgba(var(--accent-rgb),0.28);
+    border-radius: 14px;
+    padding: 14px 18px;
+  }
+  .wait-estimate-label{
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--accent-2); font-weight: 700; margin-bottom: 6px;
+  }
+  .wait-estimate-value{ font-size: 16px; font-weight: 700; }
+  .wait-estimate-date{ font-weight: 500; color: var(--text-dim); font-size: 13px; }
+  .wait-estimate-note{ font-size: 11.5px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+
   .share-row{ display:flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   .share-btn{
     background: var(--glass-strong);
@@ -703,6 +718,8 @@
 <script>
 const API_BASE = "/api";
 const START_MONTH = "2025-12";
+const TRACKING_START_DATE = new Date('2025-12-01T00:00:00');
+const TRACKING_START_LABEL = 'Dec 2025';
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 let allData = [];
@@ -1146,6 +1163,47 @@ function countAheadByMonth(person){
   return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+/* ---------- Estimated wait time ----------
+   No live/history API exists, so we derive a rough average clearance rate
+   from data already loaded: how many applicants have moved off "waiting"
+   in total, divided by how many days the queue has been tracked (since
+   Dec 2025). This is a running average, not a live trend, so it's shown
+   with a visible caveat rather than as a precise prediction. */
+function computeQueueVelocity(){
+  const cleared = allData.filter(r => r.stage !== 'waiting').length;
+  const now = new Date();
+  const daysElapsed = Math.max(1, Math.round((now - TRACKING_START_DATE) / 86400000));
+  return cleared / daysElapsed; // average people cleared per day
+}
+
+function estimateWaitDays(aheadCount){
+  if (aheadCount <= 0) return 0;
+  const velocity = computeQueueVelocity();
+  if (!velocity || velocity <= 0) return null;
+  const days = aheadCount / velocity;
+  if (!isFinite(days) || days > 365 * 3) return null; // guard against nonsense estimates
+  return days;
+}
+
+function formatWaitEstimate(days){
+  const roundedDays = Math.max(0, Math.round(days));
+  const targetDate = new Date(Date.now() + roundedDays * 86400000);
+  const dateStr = targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  let amountStr;
+  if (roundedDays < 1){
+    amountStr = 'Any day now';
+  } else if (roundedDays < 14){
+    amountStr = `~${roundedDays} day${roundedDays === 1 ? '' : 's'}`;
+  } else if (roundedDays < 60){
+    const weeks = Math.max(1, Math.round(roundedDays / 7));
+    amountStr = `~${weeks} week${weeks === 1 ? '' : 's'}`;
+  } else {
+    const months = Math.max(1, Math.round(roundedDays / 30));
+    amountStr = `~${months} month${months === 1 ? '' : 's'}`;
+  }
+  return { amountStr, dateStr };
+}
+
 const STAGE_EMOJI = {
   waiting: "⏳",
   gotSubmission: "📨",
@@ -1239,7 +1297,7 @@ function renderFavoritesPanel(){
   });
 }
 
-function buildShareText(person, ahead, breakdown){
+function buildShareText(person, ahead, breakdown, waitEstimate){
   const emoji = STAGE_EMOJI[person.stage] || "🛂";
   const lines = [
     `🛂 *ISL Visa Queue Status*`,
@@ -1250,6 +1308,9 @@ function buildShareText(person, ahead, breakdown){
     ``,
     `🔢 *People ahead of you:* ${ahead.length}`,
   ];
+  if (waitEstimate){
+    lines.push(`⏱️ *Estimated wait:* ${waitEstimate.amountStr} (around ${waitEstimate.dateStr})`);
+  }
   if (breakdown.length){
     lines.push(``, `📊 *Breakdown by join month:*`);
     breakdown.forEach(([key, count]) => lines.push(`▫️ ${calendarMonthLabel(key)}: *${count}*`));
@@ -1304,6 +1365,32 @@ function renderPositionResult(person){
     </div>
   `;
 
+  // Estimated wait only makes sense while the person is still waiting —
+  // once they've moved past that stage, an ahead-count-based estimate
+  // has nothing left to measure.
+  let waitEstimate = null;
+  let waitEstimateHtml = '';
+  if (person.stage === 'waiting'){
+    const days = estimateWaitDays(ahead.length);
+    if (days !== null){
+      waitEstimate = formatWaitEstimate(days);
+      waitEstimateHtml = `
+        <div class="wait-estimate">
+          <div class="wait-estimate-label">Estimated wait</div>
+          <div class="wait-estimate-value">${waitEstimate.amountStr} <span class="wait-estimate-date">(around ${waitEstimate.dateStr})</span></div>
+          <div class="wait-estimate-note">Based on the average queue movement since ${TRACKING_START_LABEL} — actual time may vary.</div>
+        </div>
+      `;
+    } else {
+      waitEstimateHtml = `
+        <div class="wait-estimate">
+          <div class="wait-estimate-label">Estimated wait</div>
+          <div class="wait-estimate-value">Not enough data yet</div>
+        </div>
+      `;
+    }
+  }
+
   const alreadyFav = isFavorite(person);
   const favCap = getFavorites().length >= MAX_FAVORITES && !alreadyFav;
 
@@ -1321,6 +1408,7 @@ function renderPositionResult(person){
         ${ICONS.star} <span class="btn-label">${alreadyFav ? 'Tracked' : 'Track'}</span>
       </button>
     </div>
+    ${waitEstimateHtml}
     ${breakdownHtml}
     <div class="share-row">
       <button class="share-btn" id="copyBtn">${ICONS.copy} <span class="btn-label">Copy</span></button>
@@ -1342,7 +1430,7 @@ function renderPositionResult(person){
   });
 
   document.getElementById('whatsappBtn').addEventListener('click', () => {
-    const text = buildShareText(person, ahead, breakdown);
+    const text = buildShareText(person, ahead, breakdown, waitEstimate);
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener');
   });
@@ -1354,7 +1442,7 @@ function renderPositionResult(person){
   });
 
   document.getElementById('copyBtn').addEventListener('click', async (e) => {
-    const text = buildShareText(person, ahead, breakdown);
+    const text = buildShareText(person, ahead, breakdown, waitEstimate);
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
