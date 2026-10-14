@@ -2,6 +2,8 @@ import { fetchApplicants } from "../lib/fetchApplicants.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  // Let Vercel's CDN reuse the response so the multi-page scrape isn't repeated for every request
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
 
   try {
     const records = await fetchApplicants();
