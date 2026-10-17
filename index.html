@@ -536,6 +536,45 @@
     #monthFilter{ width:100%; }
     .pill-tabs{ overflow-x:auto; }
   }
+
+  /* ---------- Two queues ---------- */
+  .position-num{ flex-direction: column; text-align: center; gap: 8px; }
+  .pn-cap{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; line-height: 1.2; }
+
+  .queue-split{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .queue-box{ background: var(--glass-strong); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+  .queue-box-num{ font-size: 26px; font-weight: 800; line-height: 1; }
+  .queue-box-label{ font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-top: 6px; }
+  .queue-box.q-wait .queue-box-num{ color: var(--c-waiting); }
+  .queue-box.q-appt .queue-box-num{ color: var(--accent-2); }
+
+  .appt-queue{ margin-bottom: 34px; }
+  .appt-panel{ border-radius: 18px; padding: 22px; }
+  .appt-intro{ color: var(--text-dim); font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+  .range-row{ display:flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px; }
+  .range-field{ display:flex; flex-direction:column; gap: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); font-weight: 600; }
+  .range-field input, .range-field select{
+    background: var(--glass-strong); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 10px; font-family:'Inter',sans-serif; font-size: 13px; outline: none; min-width: 160px;
+  }
+  .range-field input:focus, .range-field select:focus{ border-color: var(--accent); }
+  html[data-theme="dark"] .range-field input{ color-scheme: dark; }
+  html[data-theme="light"] .range-field input{ color-scheme: light; }
+  .range-summary{ display:grid; grid-template-columns: 1fr 1.3fr; gap: 18px; align-items: center; }
+  .range-big{ background: var(--glass-strong); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; }
+  .range-num{ font-size: 44px; font-weight: 800; line-height: 1; color: var(--accent-2); }
+  .range-label{ display:block; font-size: 12px; color: var(--text-dim); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .range-bar{ display:flex; height: 10px; border-radius: 999px; overflow:hidden; background: rgba(255,255,255,0.08); margin: 4px 0 8px; }
+  .range-bar .rb-done{ background: var(--c-appointed); height:100%; }
+  .range-bar .rb-pending{ background: var(--c-waiting); height:100%; }
+  .range-appointed{ font-size: 12.5px; color: var(--text-dim); margin-top: 10px; }
+  .range-appointed strong{ color: var(--text); }
+  .range-note{ font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); margin-top: 14px; }
+  @media (max-width: 640px){
+    .range-summary{ grid-template-columns: 1fr; }
+    .range-field{ flex: 1 1 140px; }
+    .range-field input, .range-field select{ min-width: 0; width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -588,6 +627,10 @@
         <div class="stat-num" id="statTotal">—</div>
         <div class="stat-label">Total Applicants</div>
       </div>
+      <div class="queue-split">
+        <div class="queue-box q-wait"><div class="queue-box-num" id="statQueueWaiting">—</div><div class="queue-box-label">Waiting list</div></div>
+        <div class="queue-box q-appt"><div class="queue-box-num" id="statQueueAppt">—</div><div class="queue-box-label">Awaiting appointment</div></div>
+      </div>
       <div class="snapshot-bar">
         <div class="seg" id="segWaiting"></div>
         <div class="seg" id="segSubmission"></div>
@@ -603,6 +646,28 @@
         <div class="legend-row"><span class="dot appointed"></span>Appointed<span class="legend-num" id="statAppointed">—</span></div>
       </div>
     </aside>
+  </section>
+
+  <section class="appt-queue">
+    <div class="browse-head">
+      <h2>Appointment Queue</h2>
+      <span class="count-pill" id="apptQueueCountPill"></span>
+    </div>
+    <div class="appt-panel glass">
+      <div class="appt-intro">Applicants who have a submission slot and are still waiting for an appointment (Got Submission, Submitted, Under Correction), ordered by got-submission date. Pick a date range to count how many fall inside it.</div>
+      <div class="range-row">
+        <label class="range-field"><span>Count by</span>
+          <select id="rangeField">
+            <option value="gotSubDate">Got-submission date</option>
+            <option value="joinDate">Join date</option>
+          </select>
+        </label>
+        <label class="range-field"><span>From</span><input type="date" id="rangeFrom"></label>
+        <label class="range-field"><span>To</span><input type="date" id="rangeTo"></label>
+        <button type="button" class="share-btn" id="rangeReset"><span class="btn-label">Reset</span></button>
+      </div>
+      <div id="rangeResult"></div>
+    </div>
   </section>
 
   <section class="monthly-progress">
@@ -800,6 +865,8 @@ async function fetchMonthData(month, retries = 2){
             joinDate: item.joinDate || "",
             joinTime: item.joinTime || "",
             stage: deriveStage(item),
+            gotSubDate: item.gotSubmissionDate || "",
+            appointmentDate: item.appointmentDate || "",
             month: actualLabel
           });
         });
@@ -829,6 +896,8 @@ function updateStats(rows){
   document.getElementById('statSubmitted').textContent = counts.submitted;
   document.getElementById('statCorrection').textContent = counts.correction;
   document.getElementById('statAppointed').textContent = counts.appointed;
+  document.getElementById('statQueueWaiting').textContent = counts.waiting;
+  document.getElementById('statQueueAppt').textContent = counts.gotSubmission + counts.submitted + counts.correction;
 
   // Presentational only: proportion bar in the Queue Snapshot panel.
   const total = rows.length || 1;
@@ -1133,18 +1202,170 @@ function findCandidates(name){
   if (!q) return [];
   return allData.filter(r => r.fullName.toLowerCase().includes(q));
 }
-function peopleAhead(person){
-  return allData.filter(r => r.stage === 'waiting' && sortKey(r) < sortKey(person));
+/* ---------- Two queues ----------
+   1) Waiting list: no submission slot yet. Ordered by join order.
+   2) Appointment queue: has a submission slot (Got Submission / Submitted /
+      Correction) but no appointment yet. Ordered by got-submission date,
+      ties broken by join order.
+   Appointed applicants are done and have no position. */
+const APPT_QUEUE_STAGES = ['gotSubmission', 'submitted', 'correction'];
+
+function queueOf(person){
+  if (person.stage === 'waiting') return 'waiting';
+  if (APPT_QUEUE_STAGES.includes(person.stage)) return 'appointment';
+  return 'done';
 }
-function countAheadByMonth(person){
+function apptOrderKey(r){ return `${r.gotSubDate || r.joinDate} ${sortKey(r)}`; }
+
+function peopleAhead(person){
+  const q = queueOf(person);
+  if (q === 'waiting'){
+    return allData.filter(r => r.stage === 'waiting' && sortKey(r) < sortKey(person));
+  }
+  if (q === 'appointment'){
+    const k = apptOrderKey(person);
+    return allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage) && apptOrderKey(r) < k);
+  }
+  return [];
+}
+
+function fmtDay(iso){
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Everything the result card, share text, favorites chip and PNG need to say about a person's queue.
+function queueInfo(person){
+  const queue = queueOf(person);
   const ahead = peopleAhead(person);
+  const n = ahead.length;
+  const verb = n === 1 ? 'person is' : 'people are';
+
+  if (queue === 'waiting'){
+    return {
+      queue, ahead,
+      heroText: String(n), imgHero: String(n),
+      cardCaption: 'Waiting list',
+      caption: 'AHEAD IN WAITING LIST',
+      cardLine: n === 0 ? 'No one in the waiting list is ahead of this person.' : `${n} ${verb} still ahead in the waiting list.`,
+      breakdownTitle: 'Waiting list ahead of you, by join month',
+      breakdownShare: 'Breakdown by join month',
+      imgBreakdown: 'ITINERARY — BY JOIN MONTH',
+      shareLabel: 'Ahead of you in the waiting list',
+      chip: `${n} ahead`,
+      monthOf: r => calendarMonthKey(r.joinDate)
+    };
+  }
+  if (queue === 'appointment'){
+    return {
+      queue, ahead,
+      heroText: String(n), imgHero: String(n),
+      cardCaption: 'For appointment',
+      caption: 'AHEAD FOR APPOINTMENT',
+      cardLine: n === 0 ? 'No one is ahead of this person for an appointment.' : `${n} ${verb} ahead for an appointment (ordered by got-submission date).`,
+      breakdownTitle: 'Ahead of you for an appointment, by got-submission month',
+      breakdownShare: 'Breakdown by got-submission month',
+      imgBreakdown: 'AHEAD — BY SUBMISSION MONTH',
+      shareLabel: 'Ahead of you for an appointment',
+      chip: `${n} ahead · appt`,
+      monthOf: r => calendarMonthKey(r.gotSubDate || r.joinDate)
+    };
+  }
+  const when = fmtDay(person.appointmentDate);
+  return {
+    queue, ahead,
+    heroText: '✓', imgHero: 'DONE',
+    cardCaption: 'Appointed',
+    caption: when ? `APPOINTMENT: ${when.toUpperCase()}` : 'APPOINTMENT BOOKED',
+    cardLine: when ? `Appointment booked for ${when}.` : 'Appointment booked.',
+    breakdownTitle: '', breakdownShare: '', imgBreakdown: '', shareLabel: '',
+    doneText: when || 'Booked',
+    chip: '✓ appointed',
+    monthOf: () => 'unknown'
+  };
+}
+
+function countAheadByMonth(person){
+  const { ahead, monthOf } = queueInfo(person);
   const counts = {};
   ahead.forEach(r => {
-    const key = calendarMonthKey(r.joinDate);
+    const key = monthOf(r);
     counts[key] = (counts[key] || 0) + 1;
   });
   return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 }
+
+/* ---------- Appointment queue: count between dates ---------- */
+function renderApptRange(){
+  const from = document.getElementById('rangeFrom').value;
+  const to = document.getElementById('rangeTo').value;
+  const field = document.getElementById('rangeField').value;
+  const box = document.getElementById('rangeResult');
+
+  const queue = allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage));
+  document.getElementById('apptQueueCountPill').textContent =
+    allData.length ? `${queue.length} awaiting appointment` : '';
+  if (!allData.length){ box.innerHTML = ''; return; }
+
+  if (from && to && from > to){
+    box.innerHTML = `<div class="lookup-empty">The “From” date is after the “To” date.</div>`;
+    return;
+  }
+
+  const inRange = r => {
+    if (!from && !to) return true;
+    const d = r[field] || '';
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  };
+
+  const pending = queue.filter(inRange);
+  const appointed = allData.filter(r => r.stage === 'appointed' && inRange(r));
+  const by = { gotSubmission: 0, submitted: 0, correction: 0 };
+  pending.forEach(r => { by[r.stage]++; });
+
+  const total = pending.length + appointed.length;
+  const pct = total ? Math.round((appointed.length / total) * 100) : 0;
+
+  let rangeText = 'All dates';
+  if (from && to) rangeText = `${fmtDay(from)} – ${fmtDay(to)}`;
+  else if (from) rangeText = `From ${fmtDay(from)}`;
+  else if (to) rangeText = `Up to ${fmtDay(to)}`;
+  const fieldText = field === 'gotSubDate' ? 'got-submission date' : 'join date';
+
+  box.innerHTML = `
+    <div class="range-summary">
+      <div class="range-big">
+        <span class="range-num">${pending.length}</span>
+        <span class="range-label">Awaiting appointment</span>
+      </div>
+      <div>
+        <div class="snapshot-legend">
+          <div class="legend-row"><span class="dot submission"></span>Got Submission<span class="legend-num">${by.gotSubmission}</span></div>
+          <div class="legend-row"><span class="dot submitted"></span>Submitted<span class="legend-num">${by.submitted}</span></div>
+          <div class="legend-row"><span class="dot correction"></span>Under Correction<span class="legend-num">${by.correction}</span></div>
+        </div>
+        <div class="range-appointed">
+          <div class="range-bar"><div class="rb-done" style="width:${pct}%"></div><div class="rb-pending" style="width:${100 - pct}%"></div></div>
+          Already appointed in this range: <strong>${appointed.length}</strong> of ${total} (${pct}%)
+        </div>
+      </div>
+    </div>
+    <div class="range-note">${escapeHtml(rangeText)} · by ${fieldText}</div>
+  `;
+}
+document.getElementById('rangeFrom').addEventListener('input', renderApptRange);
+document.getElementById('rangeTo').addEventListener('input', renderApptRange);
+document.getElementById('rangeField').addEventListener('change', renderApptRange);
+document.getElementById('rangeReset').addEventListener('click', () => {
+  document.getElementById('rangeFrom').value = '';
+  document.getElementById('rangeTo').value = '';
+  renderApptRange();
+});
 
 const STAGE_EMOJI = {
   waiting: "⏳",
@@ -1208,12 +1429,12 @@ function renderFavoritesPanel(){
           <button class="fav-remove" data-key="${escapeHtml(f.key)}" title="Remove">✕</button>
         </div>`;
     }
-    const ahead = peopleAhead(person);
+    const info = queueInfo(person);
     return `
       <div class="fav-item">
         <div class="fav-item-main" data-key="${escapeHtml(f.key)}">
           <span class="fav-name">${escapeHtml(person.fullName)}</span>
-          <span class="fav-sub">${ahead.length} ahead</span>
+          <span class="fav-sub">${escapeHtml(info.chip)}</span>
         </div>
         <button class="fav-remove" data-key="${escapeHtml(f.key)}" title="Remove">✕</button>
       </div>`;
@@ -1239,7 +1460,7 @@ function renderFavoritesPanel(){
   });
 }
 
-function buildShareText(person, ahead, breakdown){
+function buildShareText(person, ahead, breakdown, info){
   const emoji = STAGE_EMOJI[person.stage] || "🛂";
   const lines = [
     `🛂 *ISL Visa Queue Status*`,
@@ -1248,10 +1469,12 @@ function buildShareText(person, ahead, breakdown){
     `📅 *Joined:* ${person.joinDate} at ${person.joinTime}`,
     `${emoji} *Status:* ${stageLabel(person.stage)}`,
     ``,
-    `🔢 *People ahead of you:* ${ahead.length}`,
+    info.queue === 'done'
+      ? `🎉 *Appointment:* ${info.doneText}`
+      : `🔢 *${info.shareLabel}:* ${ahead.length}`,
   ];
   if (breakdown.length){
-    lines.push(``, `📊 *Breakdown by join month:*`);
+    lines.push(``, `📊 *${info.breakdownShare}:*`);
     breakdown.forEach(([key, count]) => lines.push(`▫️ ${calendarMonthLabel(key)}: *${count}*`));
   }
   lines.push(
@@ -1291,13 +1514,14 @@ const ICONS = {
 };
 
 function renderPositionResult(person){
-  const ahead = peopleAhead(person);
+  const info = queueInfo(person);
+  const ahead = info.ahead;
   const breakdown = countAheadByMonth(person);
   const box = document.getElementById('lookupResults');
 
   const breakdownHtml = breakdown.length === 0 ? '' : `
     <div class="breakdown">
-      <div class="breakdown-title">People ahead of you, by join month</div>
+      <div class="breakdown-title">${info.breakdownTitle}</div>
       ${breakdown.map(([key, count]) => `
         <div class="breakdown-row"><span>${calendarMonthLabel(key)}</span><span class="bd-count">${count}</span></div>
       `).join('')}
@@ -1309,12 +1533,12 @@ function renderPositionResult(person){
 
   box.innerHTML = `
     <div class="position-result">
-      <div class="position-num">${ahead.length}</div>
+      <div class="position-num"><div class="pn-num">${info.heroText}</div><div class="pn-cap">${info.cardCaption}</div></div>
       <div class="position-detail">
         <div class="name">${escapeHtml(person.fullName)}</div>
         <div class="meta">Joined ${escapeHtml(person.joinDate)} at ${escapeHtml(person.joinTime)} &middot; currently <span class="stamp ${person.stage}">${stageLabel(person.stage)}</span></div>
         <div class="meta">
-          ${ahead.length === 0 ? "No one still waiting is ahead of this person." : `${ahead.length} ${ahead.length === 1 ? 'person is' : 'people are'} still waiting ahead of this person.`}
+          ${info.cardLine}
         </div>
       </div>
       <button class="fav-add-btn" id="favToggleBtn" ${favCap ? 'disabled title="Remove a tracked name first"' : ''}>
@@ -1342,7 +1566,7 @@ function renderPositionResult(person){
   });
 
   document.getElementById('whatsappBtn').addEventListener('click', () => {
-    const text = buildShareText(person, ahead, breakdown);
+    const text = buildShareText(person, ahead, breakdown, info);
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener');
   });
@@ -1354,7 +1578,7 @@ function renderPositionResult(person){
   });
 
   document.getElementById('copyBtn').addEventListener('click', async (e) => {
-    const text = buildShareText(person, ahead, breakdown);
+    const text = buildShareText(person, ahead, breakdown, info);
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
@@ -1374,7 +1598,7 @@ function renderPositionResult(person){
   });
 
   document.getElementById('downloadBtn').addEventListener('click', () => {
-    downloadResultImage(person, ahead, breakdown);
+    downloadResultImage(person, ahead, breakdown, info);
   });
 }
 
@@ -1464,7 +1688,7 @@ function drawPerforation(ctx, cardX0, cardX1, y, holeR, holeColor, dotColor){
   ctx.restore();
 }
 
-function downloadResultImage(person, ahead, breakdown){
+function downloadResultImage(person, ahead, breakdown, info){
   const W = 1080;
   const measureCanvas = document.createElement('canvas');
   const mctx = measureCanvas.getContext('2d');
@@ -1605,13 +1829,13 @@ function downloadResultImage(person, ahead, breakdown){
   let hy = perf1Y + 70;
   ctx.fillStyle = accent;
   ctx.font = `800 208px ${SANS}`;
-  ctx.fillText(String(ahead.length), W/2, hy + heroNumH - 70);
+  ctx.fillText(info.imgHero, W/2, hy + heroNumH - 70);
   hy += heroNumH;
 
   ctx.fillStyle = SUB;
   ctx.font = `600 26px ${MONO}`;
   ctx.letterSpacing = '4px';
-  ctx.fillText('PEOPLE AHEAD OF YOU', W/2, hy);
+  ctx.fillText(info.caption, W/2, hy);
   ctx.letterSpacing = '0px';
   hy += 60;
 
@@ -1638,7 +1862,7 @@ function downloadResultImage(person, ahead, breakdown){
     ctx.fillStyle = FAINT;
     ctx.font = `600 21px ${MONO}`;
     ctx.letterSpacing = '2px';
-    ctx.fillText('ITINERARY — BY JOIN MONTH', cardX0 + 50, hy);
+    ctx.fillText(info.imgBreakdown, cardX0 + 50, hy);
     ctx.letterSpacing = '0px';
     hy += 40;
 
@@ -1836,6 +2060,7 @@ async function loadData(){
     updateStats(allData);
     renderTable();
     renderMonthlyProgress();
+    renderApptRange();
     renderDateReport();
     renderFavoritesPanel();
 
