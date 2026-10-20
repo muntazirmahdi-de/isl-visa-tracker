@@ -31,6 +31,8 @@
     --c-submitted: #2dd4bf;
     --c-correction: #f59e0b;
     --c-appointed: #22c55e;
+    --c-approved: #a855f7;
+    --c-rejected: #ef4444;
   }
 
   html[data-theme="light"]{
@@ -51,6 +53,8 @@
     --c-submitted: #0d9488;
     --c-correction: #b45309;
     --c-appointed: #16a34a;
+    --c-approved: #9333ea;
+    --c-rejected: #dc2626;
   }
 
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -383,6 +387,8 @@
   #segSubmitted{ background: var(--c-submitted); }
   #segCorrection{ background: var(--c-correction); }
   #segAppointed{ background: var(--c-appointed); }
+  #segApproved{ background: var(--c-approved); }
+  #segRejected{ background: var(--c-rejected); }
 
   .snapshot-legend{ display:flex; flex-direction:column; gap: 11px; }
   .legend-row{ display:flex; align-items:center; gap: 9px; font-size: 13.5px; }
@@ -392,6 +398,8 @@
   .dot.submitted{ background: var(--c-submitted); }
   .dot.correction{ background: var(--c-correction); }
   .dot.appointed{ background: var(--c-appointed); }
+  .dot.approved{ background: var(--c-approved); }
+  .dot.rejected{ background: var(--c-rejected); }
   .legend-row .legend-num{ margin-left:auto; font-family: var(--mono); font-weight:700; color: var(--text); }
 
   /* ---------- Browse section ---------- */
@@ -455,6 +463,8 @@
   .stamp.submitted{ color: var(--c-submitted); background: rgba(45,212,191,0.14); }
   .stamp.correction{ color: var(--c-correction); background: rgba(245,158,11,0.14); }
   .stamp.appointed{ color: var(--c-appointed); background: rgba(34,197,94,0.14); }
+  .stamp.visaApproved{ color: var(--c-approved); background: rgba(168,85,247,0.14); }
+  .stamp.visaRejected{ color: var(--c-rejected); background: rgba(239,68,68,0.14); }
 
   .state-msg{ padding: 60px 20px; text-align:center; color: var(--text-dim); font-family: var(--mono); font-size: 13px; }
   .state-msg.error{ color: var(--c-correction); }
@@ -608,6 +618,9 @@
   .dp-bar{ display:inline-block; width: 90px; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; vertical-align: middle; }
   .dp-bar span{ display:block; height: 100%; background: var(--accent-2); border-radius: 999px; }
   .dp-pct{ font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); margin-left: 8px; }
+
+  .expected-line{ color: var(--accent-2) !important; font-weight: 600; }
+  .dp-exp{ font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -670,6 +683,8 @@
         <div class="seg" id="segSubmitted"></div>
         <div class="seg" id="segCorrection"></div>
         <div class="seg" id="segAppointed"></div>
+        <div class="seg" id="segApproved"></div>
+        <div class="seg" id="segRejected"></div>
       </div>
       <div class="snapshot-legend">
         <div class="legend-row"><span class="dot waiting"></span>Waiting<span class="legend-num" id="statWaiting">—</span></div>
@@ -677,6 +692,8 @@
         <div class="legend-row"><span class="dot submitted"></span>Submitted<span class="legend-num" id="statSubmitted">—</span></div>
         <div class="legend-row"><span class="dot correction"></span>Correction<span class="legend-num" id="statCorrection">—</span></div>
         <div class="legend-row"><span class="dot appointed"></span>Appointed<span class="legend-num" id="statAppointed">—</span></div>
+        <div class="legend-row"><span class="dot approved"></span>Visa Approved<span class="legend-num" id="statApproved">—</span></div>
+        <div class="legend-row"><span class="dot rejected"></span>Visa Rejected<span class="legend-num" id="statRejected">—</span></div>
       </div>
     </aside>
   </section>
@@ -732,6 +749,8 @@
         <button type="button" class="pill-tab" data-value="submitted">Submitted</button>
         <button type="button" class="pill-tab" data-value="correction">Correction</button>
         <button type="button" class="pill-tab" data-value="appointed">Appointed</button>
+        <button type="button" class="pill-tab" data-value="visaApproved">Approved</button>
+        <button type="button" class="pill-tab" data-value="visaRejected">Rejected</button>
       </div>
       <select id="stageFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
         <option value="all">All stages</option>
@@ -740,6 +759,8 @@
         <option value="submitted">Submitted</option>
         <option value="correction">Correction</option>
         <option value="appointed">Appointed</option>
+        <option value="visaApproved">Visa Approved</option>
+        <option value="visaRejected">Visa Rejected</option>
       </select>
       <select id="monthFilter">
         <option value="all">All months</option>
@@ -750,7 +771,7 @@
       <table id="dataTable" style="display:none;">
         <thead>
           <tr>
-            <th>#</th><th>Name</th><th>Join Date</th><th>Join Time</th><th>Stage</th><th>Month</th>
+            <th>#</th><th>Name</th><th>Join Date</th><th>Join Time</th><th>Stage</th><th>Expected</th><th>Month</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -844,10 +865,12 @@ try {
 
 /* ---------- Helpers ---------- */
 function stageLabel(stage){
-  const map = { waiting: "Waiting", gotSubmission: "Got Submission", submitted: "Submitted", correction: "Correction", appointed: "Appointed" };
+  const map = { waiting: "Waiting", gotSubmission: "Got Submission", submitted: "Submitted", correction: "Correction", appointed: "Appointed", visaApproved: "Visa Approved", visaRejected: "Visa Rejected" };
   return map[stage] || stage;
 }
 function deriveStage(item){
+  if (item.hasVisaApproved) return "visaApproved";
+  if (item.hasVisaRejected) return "visaRejected";
   if (item.hasAppointment) return "appointed";
   if (item.hasCorrection) return "correction";
   if (item.hasSubmitted) return "submitted";
@@ -901,6 +924,8 @@ async function fetchMonthData(month, retries = 2){
             stage: deriveStage(item),
             gotSubDate: item.gotSubmissionDate || "",
             appointmentDate: item.appointmentDate || "",
+            expectedSubmission: item.expectedSubmission || "",
+            expectedAppointment: item.expectedAppointment || "",
             month: actualLabel
           });
         });
@@ -922,7 +947,7 @@ async function fetchMonthData(month, retries = 2){
 
 /* ---------- Stats / table ---------- */
 function updateStats(rows){
-  const counts = { waiting:0, gotSubmission:0, submitted:0, correction:0, appointed:0 };
+  const counts = { waiting:0, gotSubmission:0, submitted:0, correction:0, appointed:0, visaApproved:0, visaRejected:0 };
   rows.forEach(r => { if (counts[r.stage] !== undefined) counts[r.stage]++; });
   document.getElementById('statTotal').textContent = rows.length;
   document.getElementById('statWaiting').textContent = counts.waiting;
@@ -930,6 +955,8 @@ function updateStats(rows){
   document.getElementById('statSubmitted').textContent = counts.submitted;
   document.getElementById('statCorrection').textContent = counts.correction;
   document.getElementById('statAppointed').textContent = counts.appointed;
+  document.getElementById('statApproved').textContent = counts.visaApproved;
+  document.getElementById('statRejected').textContent = counts.visaRejected;
   document.getElementById('statQueueWaiting').textContent = counts.waiting;
   document.getElementById('statQueueAppt').textContent = counts.gotSubmission + counts.submitted + counts.correction;
 
@@ -940,7 +967,9 @@ function updateStats(rows){
     segSubmission: counts.gotSubmission,
     segSubmitted: counts.submitted,
     segCorrection: counts.correction,
-    segAppointed: counts.appointed
+    segAppointed: counts.appointed,
+    segApproved: counts.visaApproved,
+    segRejected: counts.visaRejected
   };
   Object.entries(segMap).forEach(([id, count]) => {
     const el = document.getElementById(id);
@@ -982,6 +1011,7 @@ function renderTable(){
         <td class="mono">${escapeHtml(r.joinDate)}</td>
         <td class="mono">${escapeHtml(r.joinTime)}</td>
         <td><span class="stamp ${r.stage}">${stageLabel(r.stage)}</span></td>
+        <td class="mono">${escapeHtml(r.expectedAppointment || r.expectedSubmission || '')}</td>
         <td class="mono">${escapeHtml(r.month)}</td>
       `;
       tbody.appendChild(tr);
@@ -1243,6 +1273,7 @@ function findCandidates(name){
       ties broken by join order.
    Appointed applicants are done and have no position. */
 const APPT_QUEUE_STAGES = ['gotSubmission', 'submitted', 'correction'];
+const APPOINTED_STAGES = ['appointed', 'visaApproved', 'visaRejected']; // already have an appointment (or a visa result)
 
 function queueOf(person){
   if (person.stage === 'waiting') return 'waiting';
@@ -1281,6 +1312,15 @@ function queueInfo(person){
   const wlCleared = { text: '0 ahead', sub: gotOn ? `Cleared — got submission ${gotOn}` : 'Cleared — got submission', state: 'done' };
   const wlLine = 'WAITING LIST: 0 AHEAD';
   const wlShare = '⏳ *Waiting list:* 0 ahead (cleared)';
+  // The source site's own estimate, shown exactly as it displays it
+  let expKind = '', expText = '';
+  if (person.expectedAppointment){ expKind = 'Expected appointment'; expText = person.expectedAppointment; }
+  else if (person.expectedSubmission){ expKind = 'Expected submission'; expText = person.expectedSubmission; }
+  const expected = (queue === 'done' || !expText) ? {} : {
+    expectedLine: `${expKind}: ${expText}`,
+    shareExpected: `📅 *${expKind}:* ${expText}`,
+    imgExpected: `${expKind}: ${expText}`.toUpperCase()
+  };
 
   if (queue === 'waiting'){
     return {
@@ -1298,7 +1338,8 @@ function queueInfo(person){
       wlBox: { text: `${n} ahead`, sub: n === 0 ? 'You are next for a submission slot' : 'Waiting for a submission slot', state: 'active' },
       apBox: { text: 'Not started', sub: 'Starts once you get a submission slot', state: 'idle' },
       chip: `${n} ahead`,
-      monthOf: r => calendarMonthKey(r.joinDate)
+      monthOf: r => calendarMonthKey(r.joinDate),
+      ...expected
     };
   }
   if (queue === 'appointment'){
@@ -1317,25 +1358,29 @@ function queueInfo(person){
       wlBox: wlCleared,
       apBox: { text: `${n} ahead`, sub: 'Ordered by got-submission date', state: 'active' },
       chip: `WL 0 · appt ${n}`,
-      monthOf: r => calendarMonthKey(r.gotSubDate || r.joinDate)
+      monthOf: r => calendarMonthKey(r.gotSubDate || r.joinDate),
+      ...expected
     };
   }
   const when = fmtDay(person.appointmentDate);
-  return {
-    queue, ahead,
-    heroText: '✓', imgHero: 'DONE',
-    cardCaption: 'Appointed',
+  const apBox = { text: 'Booked', sub: when || 'Appointment booked', state: 'done' };
+  const base = { queue, ahead, breakdownTitle: '', breakdownShare: '', imgBreakdown: '', shareLabel: '',
+    shareExtra: wlShare, wlLine, wlBox: wlCleared, apBox, monthOf: () => 'unknown' };
+
+  if (person.stage === 'visaApproved'){
+    return { ...base, heroText: '✓', imgHero: 'OK', cardCaption: 'Visa approved', caption: 'VISA APPROVED',
+      cardLine: when ? `Visa approved. Appointment was on ${when}.` : 'Visa approved.',
+      shareDoneLine: '✅ *Visa:* Approved', chip: '✓ visa approved' };
+  }
+  if (person.stage === 'visaRejected'){
+    return { ...base, heroText: '✕', imgHero: 'NO', cardCaption: 'Visa rejected', caption: 'VISA REJECTED',
+      cardLine: when ? `Visa rejected. Appointment was on ${when}.` : 'Visa rejected.',
+      shareDoneLine: '❌ *Visa:* Rejected', chip: '✕ visa rejected' };
+  }
+  return { ...base, heroText: '✓', imgHero: 'DONE', cardCaption: 'Appointed',
     caption: when ? `APPOINTMENT: ${when.toUpperCase()}` : 'APPOINTMENT BOOKED',
     cardLine: when ? `Appointment booked for ${when}.` : 'Appointment booked.',
-    breakdownTitle: '', breakdownShare: '', imgBreakdown: '', shareLabel: '',
-    shareExtra: wlShare,
-    wlLine,
-    wlBox: wlCleared,
-    apBox: { text: 'Booked', sub: when || 'Appointment booked', state: 'done' },
-    doneText: when || 'Booked',
-    chip: '✓ appointed',
-    monthOf: () => 'unknown'
-  };
+    shareDoneLine: `🎉 *Appointment:* ${when || 'Booked'}`, chip: '✓ appointed' };
 }
 
 function countAheadByMonth(person){
@@ -1349,7 +1394,7 @@ function countAheadByMonth(person){
 }
 
 /* ---------- Appointment queue: count between dates ---------- */
-const RANGE_STAGES = [...APPT_QUEUE_STAGES, 'appointed'];
+const RANGE_STAGES = [...APPT_QUEUE_STAGES, ...APPOINTED_STAGES];
 
 function isoLocal(d){
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1444,7 +1489,7 @@ function renderApptRange(){
   };
 
   const pending = queue.filter(inRange);
-  const appointed = allData.filter(r => r.stage === 'appointed' && inRange(r));
+  const appointed = allData.filter(r => APPOINTED_STAGES.includes(r.stage) && inRange(r));
   const by = { gotSubmission: 0, submitted: 0, correction: 0 };
   pending.forEach(r => { by[r.stage]++; });
 
@@ -1461,11 +1506,12 @@ function renderApptRange(){
   const groups = new Map();
   allData.filter(r => RANGE_STAGES.includes(r.stage) && inRange(r)).forEach(r => {
     const d = r[field] || '';
-    if (!groups.has(d)) groups.set(d, { pending: 0, appointed: 0, g: 0, s: 0, c: 0 });
+    if (!groups.has(d)) groups.set(d, { pending: 0, appointed: 0, g: 0, s: 0, c: 0, exp: new Map() });
     const g = groups.get(d);
-    if (r.stage === 'appointed') g.appointed++;
+    if (APPOINTED_STAGES.includes(r.stage)) g.appointed++;
     else {
       g.pending++;
+      if (r.expectedAppointment) g.exp.set(r.expectedAppointment, (g.exp.get(r.expectedAppointment) || 0) + 1);
       if (r.stage === 'gotSubmission') g.g++;
       else if (r.stage === 'submitted') g.s++;
       else g.c++;
@@ -1479,12 +1525,17 @@ function renderApptRange(){
     const g = groups.get(d);
     const w = Math.round((g.pending / maxPend) * 100);
     const share = pending.length ? Math.round((g.pending / pending.length) * 100) : 0;
+    const expList = [...g.exp.entries()].sort((a, b) => b[1] - a[1]);
+    const expCell = expList.length
+      ? `${escapeHtml(expList[0][0])}${expList.length > 1 ? ` <span title="${escapeHtml(expList.slice(1).map(e => e[0]).join(' · '))}">+${expList.length - 1}</span>` : ''}`
+      : '—';
     return `
       <tr${d ? ` data-date="${escapeHtml(d)}"` : ''} title="Got Submission ${g.g} · Submitted ${g.s} · Under Correction ${g.c}">
         <td>${escapeHtml(fmtDayWd(d))}</td>
         <td class="dp-pend">${g.pending}</td>
         <td class="mono">${g.appointed}</td>
         <td><span class="dp-bar"><span style="width:${w}%"></span></span><span class="dp-pct">${share}%</span></td>
+        ${field === 'gotSubDate' ? `<td class="dp-exp">${expCell}</td>` : ''}
       </tr>`;
   }).join('');
 
@@ -1514,7 +1565,7 @@ function renderApptRange(){
       ${shown.length ? `
         <div class="dp-scroll">
           <table class="dp-table">
-            <thead><tr><th>Date</th><th>Pending</th><th>Appointed</th><th>Share of pending</th></tr></thead>
+            <thead><tr><th>Date</th><th>Pending</th><th>Appointed</th><th>Share of pending</th>${field === 'gotSubDate' ? '<th>Expected appointment</th>' : ''}</tr></thead>
             <tbody>${tableRows}</tbody>
           </table>
         </div>` : `<div class="lookup-empty">Nothing is pending appointment in this range.</div>`}
@@ -1547,7 +1598,9 @@ const STAGE_EMOJI = {
   gotSubmission: "📨",
   submitted: "✅",
   correction: "✏️",
-  appointed: "🎉"
+  appointed: "🎉",
+  visaApproved: "🌟",
+  visaRejected: "❌"
 };
 
 /* ---------- Favorites (localStorage) ---------- */
@@ -1645,10 +1698,11 @@ function buildShareText(person, ahead, breakdown, info){
     `${emoji} *Status:* ${stageLabel(person.stage)}`,
     ``,
     info.queue === 'done'
-      ? `🎉 *Appointment:* ${info.doneText}`
+      ? info.shareDoneLine
       : `🔢 *${info.shareLabel}:* ${ahead.length}`,
   ];
   if (info.shareExtra) lines.splice(lines.length - 1, 0, info.shareExtra);
+  if (info.shareExpected) lines.push(info.shareExpected);
   if (breakdown.length){
     lines.push(``, `📊 *${info.breakdownShare}:*`);
     breakdown.forEach(([key, count]) => lines.push(`▫️ ${calendarMonthLabel(key)}: *${count}*`));
@@ -1727,6 +1781,7 @@ function renderPositionResult(person){
         <div class="meta">
           ${info.cardLine}
         </div>
+        ${info.expectedLine ? `<div class="meta expected-line">📅 ${escapeHtml(info.expectedLine)}</div>` : ''}
       </div>
       <button class="fav-add-btn" id="favToggleBtn" ${favCap ? 'disabled title="Remove a tracked name first"' : ''}>
         ${ICONS.star} <span class="btn-label">${alreadyFav ? 'Tracked' : 'Track'}</span>
@@ -1796,7 +1851,9 @@ const STAGE_COLORS = {
   gotSubmission: '#3B82F6',
   submitted: '#14B8A6',
   correction: '#F59E0B',
-  appointed: '#22C55E'
+  appointed: '#22C55E',
+  visaApproved: '#A855F7',
+  visaRejected: '#EF4444'
 };
 
 function wrapText(ctx, text, maxWidth){
@@ -1907,7 +1964,8 @@ function downloadResultImage(person, ahead, breakdown, info){
   let hRel = perf1Y_rel + 70;
   const heroNumH = 210;
   hRel += heroNumH;
-  hRel += 60 + (info.wlLine ? 40 : 0);
+  const extraLines = [info.wlLine, info.imgExpected].filter(Boolean);
+  hRel += 60 + extraLines.length * 40;
   hRel += 80;
   hRel += 50;
 
@@ -2025,14 +2083,14 @@ function downloadResultImage(person, ahead, breakdown, info){
   ctx.letterSpacing = '4px';
   ctx.fillText(info.caption, W/2, hy);
   ctx.letterSpacing = '0px';
-  if (info.wlLine){
+  extraLines.forEach(line => {
     ctx.fillStyle = FAINT;
     ctx.font = `600 22px ${MONO}`;
-    ctx.letterSpacing = '3px';
-    ctx.fillText(info.wlLine, W/2, hy + 40);
+    ctx.letterSpacing = '2px';
+    ctx.fillText(line, W/2, hy + 40);
     ctx.letterSpacing = '0px';
     hy += 40;
-  }
+  });
   hy += 60;
 
   const pillLabel = stageLabel(person.stage).toUpperCase();
