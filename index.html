@@ -621,6 +621,17 @@
 
   .expected-line{ color: var(--accent-2) !important; font-weight: 600; }
   .dp-exp{ font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+  .queue-box-note{ font-size: 10.5px; color: var(--text-dim); margin-top: 4px; min-height: 0; }
+  .queue-box-note:empty{ display:none; }
+  .stale-row{ display:flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-dim); line-height: 1.5;
+    background: var(--glass-strong); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
+  .stale-row #staleText{ flex: 1 1 320px; }
+  .dp-stale td{ opacity: 0.6; }
+  .dp-tag{ font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-correction); border: 1px solid var(--c-correction); border-radius: 999px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
+  .update-link-row{ margin-top: 10px; font-size: 12.5px; color: var(--text-dim); }
+  .update-link-row a{ color: var(--accent-2); font-weight: 600; text-decoration: none; }
+  .update-link-row a:hover{ text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -675,7 +686,7 @@
       </div>
       <div class="queue-split">
         <div class="queue-box q-wait"><div class="queue-box-num" id="statQueueWaiting">—</div><div class="queue-box-label">Waiting list</div></div>
-        <div class="queue-box q-appt"><div class="queue-box-num" id="statQueueAppt">—</div><div class="queue-box-label">Awaiting appointment</div></div>
+        <div class="queue-box q-appt"><div class="queue-box-num" id="statQueueAppt">—</div><div class="queue-box-label">Awaiting appointment</div><div class="queue-box-note" id="statQueueApptNote"></div></div>
       </div>
       <div class="snapshot-bar">
         <div class="seg" id="segWaiting"></div>
@@ -705,6 +716,10 @@
     </div>
     <div class="appt-panel glass">
       <div class="appt-intro">Applicants who have a submission slot and are still waiting for an appointment (Got Submission, Submitted, Under Correction), ordered by got-submission date. Tap a quick range, pick your own dates, or click a date in the table to focus on it.</div>
+      <div class="stale-row">
+        <span id="staleText"></span>
+        <label class="dp-toggle"><input type="checkbox" id="showStale"> Include earlier dates anyway</label>
+      </div>
       <div class="range-row">
         <label class="range-field"><span>Count by</span>
           <select id="rangeField">
@@ -958,7 +973,12 @@ function updateStats(rows){
   document.getElementById('statApproved').textContent = counts.visaApproved;
   document.getElementById('statRejected').textContent = counts.visaRejected;
   document.getElementById('statQueueWaiting').textContent = counts.waiting;
-  document.getElementById('statQueueAppt').textContent = counts.gotSubmission + counts.submitted + counts.correction;
+  const apptRows = rows.filter(r => APPT_QUEUE_STAGES.includes(r.stage));
+  const win = getApptWindow();
+  const apptActive = apptRows.filter(r => isApptActive(r, win.cutoff)).length;
+  document.getElementById('statQueueAppt').textContent = apptActive;
+  const staleN = apptRows.length - apptActive;
+  document.getElementById('statQueueApptNote').textContent = staleN > 0 ? `+${staleN} older not counted` : '';
 
   // Presentational only: proportion bar in the Queue Snapshot panel.
   const total = rows.length || 1;
@@ -1282,6 +1302,23 @@ function queueOf(person){
 }
 function apptOrderKey(r){ return `${r.gotSubDate || r.joinDate} ${sortKey(r)}`; }
 
+/* Most applicants never update their status after getting an appointment, so the raw
+   queue is padded with people who are probably already booked. Rule:
+   - frontier = latest got-submission date among people who already have an appointment
+   - only people whose got-submission date is within STALE_DAYS of the frontier (or later) are counted
+   - anyone older is assumed already handled and is NOT counted */
+const STALE_DAYS = 10;
+function getApptWindow(){
+  let frontier = '';
+  allData.forEach(r => {
+    if (APPOINTED_STAGES.includes(r.stage) && r.gotSubDate && r.gotSubDate > frontier) frontier = r.gotSubDate;
+  });
+  return { frontier, cutoff: frontier ? addDaysISO(frontier, -STALE_DAYS) : '' };
+}
+function isApptActive(r, cutoff){
+  return !cutoff || !r.gotSubDate || r.gotSubDate >= cutoff; // no date = can't judge, so count
+}
+
 function peopleAhead(person){
   const q = queueOf(person);
   if (q === 'waiting'){
@@ -1289,7 +1326,8 @@ function peopleAhead(person){
   }
   if (q === 'appointment'){
     const k = apptOrderKey(person);
-    return allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage) && apptOrderKey(r) < k);
+    const { cutoff } = getApptWindow();
+    return allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage) && isApptActive(r, cutoff) && apptOrderKey(r) < k);
   }
   return [];
 }
@@ -1343,21 +1381,31 @@ function queueInfo(person){
     };
   }
   if (queue === 'appointment'){
+    const win = getApptWindow();
+    const stale = !isApptActive(person, win.cutoff);
+    const key = apptOrderKey(person);
+    const olderNotCounted = stale ? 0 : allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage) && !isApptActive(r, win.cutoff) && apptOrderKey(r) < key).length;
+    const from = win.cutoff ? fmtDay(win.cutoff) : '';
+    const counted = from ? `counted from ${from}` : 'ordered by got-submission date';
     return {
-      queue, ahead,
+      queue, ahead, stale,
       heroText: String(n), imgHero: String(n),
       cardCaption: 'For appointment',
       caption: 'AHEAD FOR APPOINTMENT',
-      cardLine: n === 0 ? 'No one is ahead of this person for an appointment.' : `${n} ${verb} ahead for an appointment (ordered by got-submission date).`,
+      cardLine: stale
+        ? `Your got-submission date${gotOn ? ` (${gotOn})` : ''} is older than the counted window (from ${from}). Applicants that far back are usually already booked but haven't updated their status, so no one is counted ahead of you.`
+        : n === 0 ? 'No one is ahead of this person for an appointment.' : `${n} ${verb} ahead for an appointment (${counted}).`,
       breakdownTitle: 'Ahead of you for an appointment, by got-submission month',
       breakdownShare: 'Breakdown by got-submission month',
       imgBreakdown: 'AHEAD — BY SUBMISSION MONTH',
       shareLabel: 'Ahead of you for an appointment',
-      shareExtra: wlShare,
+      shareExtra: stale ? `${wlShare}\n⚠️ _Got-submission date is older than the counted window — probably already booked._` : wlShare,
       wlLine,
       wlBox: wlCleared,
-      apBox: { text: `${n} ahead`, sub: 'Ordered by got-submission date', state: 'active' },
-      chip: `WL 0 · appt ${n}`,
+      apBox: stale
+        ? { text: 'Not counted', sub: `Older than ${from} — probably already booked. Please update your status.`, state: 'idle' }
+        : { text: `${n} ahead`, sub: `Ordered by got-submission date · ${counted}${olderNotCounted ? ` · ${olderNotCounted} older not counted` : ''}`, state: 'active' },
+      chip: stale ? 'WL 0 · appt old' : `WL 0 · appt ${n}`,
       monthOf: r => calendarMonthKey(r.gotSubDate || r.joinDate),
       ...expected
     };
@@ -1421,8 +1469,10 @@ function renderRangePresets(){
   const to = document.getElementById('rangeTo').value;
   const el = document.getElementById('rangePresets');
 
-  const allDates = allData.filter(r => RANGE_STAGES.includes(r.stage)).map(r => r[field]).filter(Boolean).sort();
-  const pendDates = allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage)).map(r => r[field]).filter(Boolean).sort();
+  const win = getApptWindow();
+  const includeStale = document.getElementById('showStale').checked;
+  const allDates = allData.filter(r => APPOINTED_STAGES.includes(r.stage) || (APPT_QUEUE_STAGES.includes(r.stage) && (includeStale || isApptActive(r, win.cutoff)))).map(r => r[field]).filter(Boolean).sort();
+  const pendDates = allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage) && (includeStale || isApptActive(r, win.cutoff))).map(r => r[field]).filter(Boolean).sort();
   if (!allDates.length){ el.innerHTML = ''; return; }
 
   // keep the date pickers open on dates that actually have data
@@ -1468,9 +1518,17 @@ function renderApptRange(){
   const prevToggle = document.getElementById('rangeShowDone');
   const showAll = prevToggle ? prevToggle.checked : false;
 
-  const queue = allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage));
-  document.getElementById('apptQueueCountPill').textContent =
-    allData.length ? `${queue.length} awaiting appointment` : '';
+  const win = getApptWindow();
+  const includeStale = document.getElementById('showStale').checked;
+  const queueAll = allData.filter(r => APPT_QUEUE_STAGES.includes(r.stage));
+  const queue = includeStale ? queueAll : queueAll.filter(r => isApptActive(r, win.cutoff));
+  const staleCount = queueAll.length - queueAll.filter(r => isApptActive(r, win.cutoff)).length;
+  document.getElementById('apptQueueCountPill').textContent = allData.length
+    ? `${queue.length} awaiting appointment${!includeStale && staleCount ? ` · ${staleCount} not counted` : ''}`
+    : '';
+  document.getElementById('staleText').textContent = !allData.length ? '' : win.cutoff
+    ? `Counting from ${fmtDay(win.cutoff)} — ${STALE_DAYS} days behind the latest appointment date (${fmtDay(win.frontier)}). Earlier dates (${staleCount} ${staleCount === 1 ? 'person' : 'people'}) are assumed already handled and are not counted.`
+    : 'No appointments reported yet, so everyone is counted.';
   renderRangePresets();
   if (!allData.length){ box.innerHTML = ''; return; }
 
@@ -1504,7 +1562,7 @@ function renderApptRange(){
 
   // Pending / appointed per date, oldest first (front of the queue first)
   const groups = new Map();
-  allData.filter(r => RANGE_STAGES.includes(r.stage) && inRange(r)).forEach(r => {
+  allData.filter(r => RANGE_STAGES.includes(r.stage) && inRange(r) && (APPOINTED_STAGES.includes(r.stage) || includeStale || isApptActive(r, win.cutoff))).forEach(r => {
     const d = r[field] || '';
     if (!groups.has(d)) groups.set(d, { pending: 0, appointed: 0, g: 0, s: 0, c: 0, exp: new Map() });
     const g = groups.get(d);
@@ -1525,13 +1583,14 @@ function renderApptRange(){
     const g = groups.get(d);
     const w = Math.round((g.pending / maxPend) * 100);
     const share = pending.length ? Math.round((g.pending / pending.length) * 100) : 0;
+    const isOld = includeStale && field === 'gotSubDate' && win.cutoff && d && d < win.cutoff;
     const expList = [...g.exp.entries()].sort((a, b) => b[1] - a[1]);
     const expCell = expList.length
       ? `${escapeHtml(expList[0][0])}${expList.length > 1 ? ` <span title="${escapeHtml(expList.slice(1).map(e => e[0]).join(' · '))}">+${expList.length - 1}</span>` : ''}`
       : '—';
     return `
-      <tr${d ? ` data-date="${escapeHtml(d)}"` : ''} title="Got Submission ${g.g} · Submitted ${g.s} · Under Correction ${g.c}">
-        <td>${escapeHtml(fmtDayWd(d))}</td>
+      <tr${d ? ` data-date="${escapeHtml(d)}"` : ''} class="${isOld ? 'dp-stale' : ''}" title="Got Submission ${g.g} · Submitted ${g.s} · Under Correction ${g.c}">
+        <td>${escapeHtml(fmtDayWd(d))}${isOld ? ' <span class="dp-tag">not counted</span>' : ''}</td>
         <td class="dp-pend">${g.pending}</td>
         <td class="mono">${g.appointed}</td>
         <td><span class="dp-bar"><span style="width:${w}%"></span></span><span class="dp-pct">${share}%</span></td>
@@ -1576,6 +1635,7 @@ function renderApptRange(){
 document.getElementById('rangeFrom').addEventListener('input', renderApptRange);
 document.getElementById('rangeTo').addEventListener('input', renderApptRange);
 document.getElementById('rangeField').addEventListener('change', renderApptRange);
+document.getElementById('showStale').addEventListener('change', renderApptRange);
 document.getElementById('rangeReset').addEventListener('click', () => {
   document.getElementById('rangeFrom').value = '';
   document.getElementById('rangeTo').value = '';
@@ -1769,6 +1829,10 @@ function renderPositionResult(person){
     </div>
   `;
 
+  const updateHtml = info.queue === 'appointment'
+    ? `<div class="update-link-row">Got your appointment or something changed? <a href="https://visatracker.waleedingermany.com/apply" target="_blank" rel="noopener">Update your status on the tracker →</a></div>`
+    : '';
+
   const alreadyFav = isFavorite(person);
   const favCap = getFavorites().length >= MAX_FAVORITES && !alreadyFav;
 
@@ -1788,6 +1852,7 @@ function renderPositionResult(person){
       </button>
     </div>
     ${scoreHtml}
+    ${updateHtml}
     ${breakdownHtml}
     <div class="share-row">
       <button class="share-btn" id="copyBtn">${ICONS.copy} <span class="btn-label">Copy</span></button>
